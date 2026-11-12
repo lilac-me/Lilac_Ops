@@ -11,10 +11,6 @@
 
 ## 0. 插件选择
 
-CANNBot 按场景拆分成多个插件。本文覆盖算子生成与优化方向常用的 4 个。同一方向上的其它插件还有官方仓的 `ops-direct-invoke`（Ascend C 直调算子开发）、`ops-registry-invoke`（Ascend C 注册算子开发）、`model-infer-optimize`（模型迁移与推理优化）、`hccl-op-generator`（HCCL 通信算子），以及社区仓的 `ascendc-port-orchestrator`（跨代际移植、反向算子生成）、`model-train-precision-diagnose`（训练精度异常诊断）等。
-
-下面的表只用于在本文这 4 个插件之间选择。选错插件通常意味着几小时到几十小时的跑批白费。
-
 ### 0.1 按输入和输出选
 
 | 输入 | 输出 | 插件 | 说明 |
@@ -31,11 +27,24 @@ CANNBot 按场景拆分成多个插件。本文覆盖算子生成与优化方向
 | Triton-Ascend | `triton-op-generator` | `triton-op-generator`（Phase 4 单任务内扫描）<br>`triton-auto-evolve`（跨轮进化，成本更高） |
 | Ascend C | `tilelang2ascendc-ops-generator` | `ops-perf-evolution` |
 
-### 0.3 三处边界
+`triton-op-generator` 在单次任务内跑完 Phase 4（33 个优化点、IR 多轮、simulator 采集）即交付；`triton-auto-evolve` 由主 agent 跨轮调子 CLI，轮数由 `max_rounds` 决定，token 与 NPU 时间成本明显更高。
 
-1. `ops-perf-evolution` 不写新算子。它的输入必须是可编译的 AscendC 基线目录或 ops 仓算子路径。
-2. `tilelang2ascendc-ops-generator` 与 `ops-perf-evolution` 是接力的关系。前者把 AscendC 算子从无到有做出来，并做一轮 TileLang 性能迭代；未达目标时再交给后者做多轮进化。
-3. 两个 Triton 插件的差别在轮次。`triton-op-generator` 在单次任务内跑完 Phase 4（33 个优化点、IR 多轮、simulator 采集）即交付；`triton-auto-evolve` 由主 agent 跨轮调子 CLI，轮数由 `max_rounds` 决定，token 与 NPU 时间成本明显更高。
+### 0.3 总览矩阵
+
+| 生成算子的语言 | 生成场景 | CANNBot 插件 | 支持输入 | 支持框架 |
+| --- | --- | --- | --- | --- |
+| AscendC | A2/A3 生成 | [tilelang2ascendc-ops-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-community/tilelang2ascendc-ops-generator) | triton/torch/cuda | 参考实现 Claude Code、OpenCode、Trae、Cursor、Copilot、CodeArts |
+| AscendC | A2/A3 性能优化 | ops-perf-evolution | AscendC 算子参考实现 | Claude Code、OpenCode、Trae、Cursor
+| AscendC | A2/A3 迁移 A5 | [ascendc-port-orchestrator](https://gitcode.com/cann/cannbot/tree/master/plugins-community/ascendc-port-orchestrator) | ascendc/triton/cuda 参考实现  | Claude Code、OpenCode、Cursor、Copilot
+| AscendC | A5 生成、训练反向生成 | [ascendc-port-orchestrator](https://gitcode.com/cann/cannbot/tree/master/plugins-community/ascendc-port-orchestrator) | 算子描述/数学公式/输入输出规格 | Claude Code、OpenCode、Codex、DSH、Trae
+| AscendC | A5 性能优化 | ops-perf-evolution | ascendc/triton/cuda 算子参考实现 | Claude Code、 OpenCode、Trae、Cursor
+| Triton | A2/A3 生成 | [triton-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/triton-op-generator) | torch/GPU Triton Kernel 参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
+| Triton | A2/A3 性能优化 | ops-perf-evolution | triton 参考实现 | Claude Code、OpenCode、Trae、Cursor
+| Triton | A2/A3 迁移 A5 | [triton-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/triton-op-generator) | triton 参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
+| Triton | A5 生成 | [triton-optimizer](https://gitcode.com/cann/cannbot/tree/master/plugins-community/triton-optimizer) | Triton Ascend NPU 算子/Torch 参考实现 | Claude Code、OpenCode、Trae、Cursor、Copilot
+| Catlass | A2/A3/A5 生成 | [catlass-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/catlass-op-generator) | 数学 contract/算子需求/可审查参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
+| PyPTO | A2/A3/A5 生成 | [pypto-op-orchestrator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/pypto-op-orchestrator) | 算子公式/Shape/dtype/属性 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
+| TileLang | A2/A3/A5 生成 | [tilelang-op-orchestrator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/tilelang-op-orchestrator) | 算子公式/输入输出规格/PyTorch API 示例 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
 
 ## 1. 安装与前置
 
