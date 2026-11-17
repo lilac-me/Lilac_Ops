@@ -1,0 +1,17 @@
+{
+  "title": "ContextReport",
+  "description": "上下文收集阶段的共享事实基线产物",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["repo", "documents", "missing"],
+  "properties": {
+    "repo": { "type": "string" },
+    "profile": { "type": "string" },
+    "documents": { "type": "array", "items": { "type": "string" } },
+    "version_baseline": { "type": "string" },
+    "topics": { "type": "string" },
+    "dependencies": { "type": "array", "items": { "type": "string" } },
+    "capabilities": { "type": "string" },
+    "missing": { "type": "array", "items": { "type": "string" } }
+  }
+}

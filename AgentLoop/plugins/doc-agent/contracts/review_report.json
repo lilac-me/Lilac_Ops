@@ -1,0 +1,43 @@
+{
+  "title": "ReviewReport",
+  "description": "语义 reviewer 调度完成证明；required/completed 集合必须与审查深度一致",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["doc", "doc_sha256", "depth", "status", "required_reviewers", "completed_reviewers", "errors"],
+  "properties": {
+    "doc": { "type": "string", "minLength": 1 },
+    "doc_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "depth": { "enum": ["L0", "L1", "L2"] },
+    "status": { "enum": ["completed", "failed"] },
+    "required_reviewers": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "correctness-code-reviewer",
+          "correctness-semantic-reviewer",
+          "completeness-reviewer",
+          "clarity-reviewer",
+          "accessibility-reviewer"
+        ]
+      }
+    },
+    "completed_reviewers": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "correctness-code-reviewer",
+          "correctness-semantic-reviewer",
+          "completeness-reviewer",
+          "clarity-reviewer",
+          "accessibility-reviewer"
+        ]
+      }
+    },
+    "errors": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  }
+}

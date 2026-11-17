@@ -1,0 +1,16 @@
+# Flux SFT 训练配置模板。目标 VeOmni 工作副本中应使用 configs/dit/flux_sft.yaml。
+model:
+  name: Flux
+  architectures: [FluxModel]
+  vae_subfolder: vae
+data:
+  image_manifest: REQUIRED_AT_RUNTIME
+  image_size_multiple: 32
+parallel:
+  dp_shard_size: 16
+  fsdp2: {enabled: true}
+training:
+  global_batch_size: 16
+  steps: 1
+output:
+  checkpoint: true

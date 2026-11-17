@@ -1,0 +1,32 @@
+{
+  "name": "mindspeed-scan-issue-agent",
+  "version": "0.4.1",
+  "description": "Cross-repository GitCode Issue triage with safe local credential setup, guarded drafts, and an integrated web Observatory.",
+  "author": {
+    "name": "ye_qm"
+  },
+  "license": "MIT",
+  "keywords": [
+    "gitcode",
+    "issues",
+    "triage",
+    "automation",
+    "observability"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "mindspeed-scan-issue-agent",
+    "shortDescription": "Analyze Issues across selected GitCode repositories",
+    "longDescription": "Scans user-selected GitCode repositories, creates guarded drafts, and installs the MindSpeed Issue Observatory with a local settings center for secure credentials and repository policy.",
+    "developerName": "ye_qm",
+    "category": "Engineering",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Analyze an Issue in a GitCode repository I name without posting.",
+      "Preview pending Issues after checking whether a read token is configured.",
+      "Create code-grounded shadow drafts for selected Issues.",
+      "Open the full Issue visualization website for the repository I already selected."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

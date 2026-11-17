@@ -1,0 +1,188 @@
+# MindSpeed 生态社区代码仓注册表（Repo 节点）
+# =============================================
+# 图谱事实源之一：定义社区代码仓的 canonical id / 别名 / 类型 / 后端 / 关联。
+# 规则（lint_catalog.py 强校验）：
+#   - id: 全小写 kebab-case，全局唯一
+#   - aliases: 口语/曾用名（大小写不敏感匹配用），全局唯一（不得与其他 id/alias 冲突）
+#   - kind: 取值见 task-kinds 无关，此处为仓类型枚举：llm-training / mm-training /
+#     training / inference / ops / runtime / profiling / doc / upstream
+#   - backends: 该仓支持的运行后端（mcore/fsdp2/mindspore/vllm/triton/…）
+#   - urls: 镜像地址（gitcode/gitee/github 均可）；来源不确定时留空并在 notes 注明
+#   - related: 相关仓 canonical id（本表内的 id）
+# 维护：新增仓 → 追加节点；改名 → 更新 aliases 并保留旧名，不删 id。
+# 对账：urls 可由 CI/脚本用 GitCode/GitHub API 定期刷新，但 id/aliases 必须人工维护。
+
+repos:
+  - id: mindspeed
+    name: MindSpeed
+    aliases: ["MindSpeed", "mindspeed训练库", "MindSpeed 加速库"]
+    kind: training
+    description: 昇腾分布式训练加速库（Megatron 适配层）。
+    backends: [megatron]
+    urls:
+      gitee: https://gitee.com/ascend/MindSpeed
+    related: [mindspeed-llm, megatron-core]
+    notes: "社区主镜像为 gitee/ascend/MindSpeed；github 存在个人 mirror。"
+
+  - id: mindspeed-llm
+    name: MindSpeed-LLM
+    aliases: ["MindSpeed-LLM", "mindspeed-llm", "ModelLink", "modellink", "大模型训练套件", "LLM 训练套件"]
+    kind: llm-training
+    description: 基于昇腾生态的大语言模型分布式训练套件（含 MCore / FSDP2 / MindSpore 三条路径）。
+    backends: [mcore, fsdp2, mindspore]
+    urls:
+      gitcode: https://gitcode.com/Ascend/MindSpeed-LLM
+      github: https://github.com/Ascend/MindSpeed-LLM
+    related: [mindspeed, megatron-core, mindspeed-bridge]
+    notes: "曾用名 ModelLink（2024 年由 ModelLink 更名）；examples/mcore、train_fsdp2.py 等入口众多，路由时需区分后端。"
+
+  - id: mindspeed-mm
+    name: MindSpeed-MM
+    aliases: ["MindSpeed-MM", "mindspeed-mm", "MM 训练套件", "多模态训练套件"]
+    kind: mm-training
+    description: 昇腾多模态大模型（视觉-语言等）训练套件。
+    backends: [mcore, fsdp2]
+    urls:
+      github: https://github.com/Ascend/MindSpeed-MM
+    related: [mindspeed-llm]
+    notes: "多模态场景；MindSpeed-Agent 内 mm-model 技能域当前处于规划阶段。"
+
+  - id: mindspeed-bridge
+    name: MindSpeed-Bridge
+    aliases: ["MindSpeed-Bridge", "mindspeed-bridge", "Bridge", "Megatron-Bridge", "megatron-bridge"]
+    kind: llm-training
+    description: 面向昇腾的开源模型桥接迁移仓库（HF ↔ Megatron 结构，Bridge/Provider/MegatronModel）。
+    backends: [mcore]
+    urls: {}
+    related: [mindspeed-llm, megatron-core]
+    notes: "仓库地址/分支以各 skill 实测为准（bridge-model-adaptation 等引用本地工作区 MindSpeed-Bridge）；v0.3.1 分支依赖 MindSpeed megatron_adaptor，master 已去除。"
+
+  - id: megatron-core
+    name: Megatron-Core
+    aliases: ["Megatron", "Megatron Core", "megatron", "NVIDIA Megatron"]
+    kind: upstream
+    description: NVIDIA Megatron-Core / Megatron-LM（上游基础框架，MindSpeed 系列在其上适配）。
+    backends: [mcore]
+    urls:
+      github: https://github.com/NVIDIA/Megatron-LM
+    related: [mindspeed-llm, mindspeed-bridge]
+    notes: "上游依赖仓，MindSpeed-Agent 通常不改其源码，仅按版本适配。"
+
+  - id: vllm
+    name: vLLM
+    aliases: ["vllm", "vLLM", "vllm-project/vllm"]
+    kind: inference
+    description: 高吞吐 LLM 推理引擎（上游）。
+    backends: [vllm]
+    urls:
+      github: https://github.com/vllm-project/vllm
+    related: [vllm-ascend]
+    notes: "昇腾场景通常配套 vllm-ascend 使用；版本配套关系见 vllm-ascend commit 信息。"
+
+  - id: vllm-ascend
+    name: vLLM-Ascend
+    aliases: ["vllm-ascend", "vLLM-Ascend", "VLLM_ASCEND", "昇腾推理引擎"]
+    kind: inference
+    description: vLLM 昇腾 NPU 后端（vLLM Ascend Plugin）。
+    backends: [vllm]
+    urls:
+      github: https://github.com/vllm-project/vllm-ascend
+    related: [vllm, torch-npu, triton-ascend, cann]
+    notes: "推理场景主目标仓；serving/benchmark/profiling/autotune/精度验收等 inference-model-skills 大部分以其为对象。"
+
+  - id: torch-npu
+    name: torch-npu
+    aliases: ["torch-npu", "torch_npu", "torchNPU"]
+    kind: runtime
+    description: PyTorch 昇腾 NPU 适配层（torch_npu）。
+    backends: [torch]
+    urls: {}
+    related: [cann]
+    notes: "随 CANN 版本配套；version-bisect 以其 commit 作为二分维度之一。"
+
+  - id: cann
+    name: CANN
+    aliases: ["cann", "CANN", "昇腾软件栈", "Ascend 软件栈"]
+    kind: runtime
+    description: 昇腾计算架构 CANN（驱动/运行时/编译等软件栈）。
+    backends: []
+    urls: {}
+    related: [torch-npu]
+    notes: "软件栈而非单一代码仓；拆包定位见 cann-package-split-diagnose。"
+
+  - id: msprobe
+    name: msprobe
+    aliases: ["msprobe", "MSProbe"]
+    kind: profiling
+    description: 昇腾模型调试/精度对比工具（dump 等）。
+    backends: []
+    urls:
+      gitcode: https://gitcode.com/Ascend/msprobe
+    related: [cann, vllm-ascend]
+    notes: "model-debugging 参考资料来源。"
+
+  - id: mstt
+    name: mstt
+    aliases: ["mstt", "MSTT", "msit", "MSIT"]
+    kind: profiling
+    description: 昇腾性能 Profiling/预检工具链（mstt/msit、msprechecker）。
+    backends: []
+    urls:
+      gitee: https://gitee.com/ascend/mstt
+    related: [cann]
+    notes: "ascend-msprof-analyze-cli 引用的资料仓（gitee.com/ascend/mstt、msit）。"
+
+  - id: triton-ascend
+    name: triton-ascend
+    aliases: ["triton-ascend", "Triton-Ascend", "triton", "Triton"]
+    kind: ops
+    description: Triton 昇腾 NPU 后端（算子开发/迁移目标栈）。
+    backends: [triton]
+    urls:
+      github: https://github.com/triton-lang/triton-ascend
+    related: [ascendnpu-ir]
+    notes: "ops-skills/triton 系列技能的目标运行栈；昇腾语境下用户说'triton 算子'即指 triton-ascend。"
+
+  - id: ascendnpu-ir
+    name: AscendNPU-IR
+    aliases: ["AscendNPU-IR", "ascendnpu-ir", "AscendNPU IR"]
+    kind: ops
+    description: 昇腾 NPU 图/IR 相关最佳实践与工具仓库。
+    backends: []
+    urls:
+      gitcode: https://gitcode.com/Ascend/AscendNPU-IR
+    related: [triton-ascend]
+    notes: "triton-op-dev / ops 参考文档来源。"
+
+  - id: tilelang
+    name: tilelang
+    aliases: ["tilelang", "TileLang", "tile-lang"]
+    kind: ops
+    description: TileLang 高性能 kernel DSL（基于 TVM），Ascend 950 原生支持（USE_ASCEND）。
+    backends: [tilelang]
+    urls:
+      github: https://github.com/tile-ai/tilelang
+    related: [tilelang-mlir-ascend, tilekernels]
+    notes: "ops-skills/tilelang 系列技能的目标运行栈；950（arch35）走主仓 USE_ASCEND=ON 构建。"
+
+  - id: tilelang-mlir-ascend
+    name: tilelang-mlir-ascend
+    aliases: ["tilelang-mlir-ascend", "TileLang-MLIR-Ascend"]
+    kind: ops
+    description: TileLang 昇腾 MLIR 适配器，覆盖 Atlas A2/A3（arch22），AscendNPU IR 与 Ascend C & PTO 双路线。
+    backends: [tilelang]
+    urls:
+      github: https://github.com/tile-ai/tilelang-mlir-ascend
+    related: [tilelang, ascendnpu-ir]
+    notes: "A2/A3（arch22）走源码构建 install_npuir.sh；性能接近手写 AscendC（GEMM ~0.98x）。"
+
+  - id: tilekernels
+    name: TileKernels
+    aliases: ["tilekernels", "TileKernels"]
+    kind: ops
+    description: DeepSeek 的 TileLang 算子库（MoE/Engram/FP8/FP4 量化/RoPE 等），Ascend 950 + CANN 9.2+。
+    backends: [tilelang]
+    urls:
+      github: https://github.com/deepseek-ai/TileKernels
+    related: [tilelang]
+    notes: "运行时自动选择 NVIDIA/Huawei 后端，同一套 Python API 双后端通用。"

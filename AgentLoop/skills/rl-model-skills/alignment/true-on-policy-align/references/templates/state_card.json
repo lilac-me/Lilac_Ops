@@ -1,0 +1,87 @@
+{
+  "schema_version": 2,
+  "session_id": "待填写-session-id",
+  "updated_at": null,
+  "mode": "Full",
+  "objective": {
+    "statement": "待填写：最终模型与目标运行路径的端到端训推一致对齐",
+    "requested_model": "待填写",
+    "requested_scope": "deterministic prefill alignment plus requested-topology long-horizon E2E validation",
+    "success_metric": {
+      "name": "待填写",
+      "target": "exact_zero"
+    },
+    "historical_failure_step": null,
+    "required_gates": [
+      "static_tensor_prefill",
+      "weight_sync",
+      "stateful_training",
+      "long_horizon_e2e",
+      "reduced_model_transfer",
+      "requested_model_final",
+      "production_patch_hygiene",
+      "clean_runtime_activation",
+      "performance_regression"
+    ],
+    "stop_condition": "all required gates pass with retained evidence"
+  },
+  "authorization": {
+    "record": "待填写：一次性授权记录",
+    "confirmed": false
+  },
+  "environment": {
+    "execution_target": "待填写",
+    "working_directory": "待填写",
+    "training_backend": "待填写",
+    "inference_backend": "待填写",
+    "hardware_backend": "待填写",
+    "evidence_provider": "待填写",
+    "package_mirror": "未配置"
+  },
+  "model": {
+    "source_model": "待填写",
+    "immutable_diagnostic_model": "待填写：不得原地修改源模型配置",
+    "source_config_sha256": null,
+    "effective_config_sha256": null,
+    "checkpoint_manifest_sha256": null,
+    "minimization": {
+      "strategy": "semantic_preserving",
+      "coverage_matrix": []
+    }
+  },
+  "state": {
+    "task_status": "open",
+    "active_module": 1,
+    "discovery_epoch": 0,
+    "registry_status": "open",
+    "reopen_reason": null,
+    "next_gate": "confirm objective, environment and authorization"
+  },
+  "truth": {
+    "tensor_prefill": {"status": "not_run", "evidence": []},
+    "weight_sync": {"status": "not_run", "evidence": []},
+    "stateful_training": {"status": "not_run", "evidence": []},
+    "long_horizon_e2e": {"status": "not_run", "evidence": []},
+    "reduced_model_transfer": {"status": "not_run", "evidence": []},
+    "requested_model_final": {"status": "not_run", "evidence": []},
+    "production_patch_hygiene": {"status": "not_run", "evidence": []},
+    "clean_runtime_activation": {"status": "not_run", "evidence": []},
+    "performance_regression": {"status": "not_run", "evidence": []}
+  },
+  "runtime": {
+    "diagnostic_replay_enabled": false,
+    "diagnostic_capture_enabled": false,
+    "clean_process_started": false,
+    "alignment_profile": "disabled",
+    "compile_cache": "unknown",
+    "prefix_cache": "unknown",
+    "task_queue": "unknown",
+    "weight_reload": "unknown",
+    "jobs": []
+  },
+  "artifacts": {
+    "session_root": "待填写",
+    "retained": []
+  },
+  "history": []
+}

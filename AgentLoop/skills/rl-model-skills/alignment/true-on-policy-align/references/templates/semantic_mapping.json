@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "phase": "prefill",
+  "execution_order_basis": "runtime call_index captured by the evidence provider",
+  "source_hashes": {
+    "train_dump": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "infer_dump": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "mappings": [
+    {
+      "mapping_id": "M001",
+      "semantic_node": "decoder.layer0.attention.qkv_projection",
+      "relation": "N:1",
+      "execution_order": 10,
+      "execution_order_evidence": {
+        "kind": "call_index",
+        "detail": "train q/k/v calls precede infer fused qkv call at the same layer boundary"
+      },
+      "tensor_roles": [
+        "input",
+        "parameter",
+        "output"
+      ],
+      "train": [
+        {
+          "key": "train.layer0.q_proj",
+          "selector": "output.0",
+          "call_index": 0,
+          "transforms": []
+        },
+        {
+          "key": "train.layer0.k_proj",
+          "selector": "output.0",
+          "call_index": 0,
+          "transforms": []
+        },
+        {
+          "key": "train.layer0.v_proj",
+          "selector": "output.0",
+          "call_index": 0,
+          "transforms": []
+        }
+      ],
+      "infer": [
+        {
+          "key": "infer.layer0.fused_qkv",
+          "selector": "output.0",
+          "call_index": 0,
+          "transforms": []
+        }
+      ],
+      "semantic_basis": "source and stack evidence show split train projections correspond to one fused inference projection",
+      "confidence": "high",
+      "structural_relation": {
+        "kind": "fusion_split",
+        "basis": "the inference operator concatenates Q, K and V outputs along the declared projection dimension"
+      }
+    }
+  ]
+}

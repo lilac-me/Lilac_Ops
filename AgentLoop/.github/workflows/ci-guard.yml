@@ -1,0 +1,51 @@
+name: ci-guard
+
+on:
+  push:
+    branches: [master, new-main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Python dependencies
+        run: pip install pyyaml pytest
+
+      # L1/L2/L3 结构、引用、一致性看护
+      - name: Run CI guard
+        run: python ci/guard.py --repo . --json guard-report.json
+
+      # 引擎状态机 + 门禁单元测试
+      - name: Run engine tests
+        run: PYTHONPATH=plugins/inference-model-optimize python -m pytest plugins/inference-model-optimize/engine/tests -q
+
+      # guard 自身自测（防止看护脚本腐化）
+      - name: Run guard self-tests
+        run: python -m pytest ci/test_guard.py -q
+
+      - name: Check Issue plugin package
+        run: python -m unittest discover -s plugins/mindspeed-scan-issue-agent/tests -p test_packaging.py -v
+
+      - name: Test Issue workspace and delivery claims
+        run: |
+          python -m unittest discover -s plugins/mindspeed-scan-issue-agent/tests -p test_workspace.py -v
+          python -m unittest discover -s plugins/mindspeed-scan-issue-agent/tests -p test_delivery_claim.py -v
+
+      - name: Upload guard report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guard-report
+          path: guard-report.json

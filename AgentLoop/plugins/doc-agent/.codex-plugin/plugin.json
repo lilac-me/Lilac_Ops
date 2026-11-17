@@ -1,0 +1,34 @@
+{
+  "name": "doc-agent",
+  "version": "0.2.0",
+  "description": "Deterministic documentation generation and four-dimensional quality review workflows for MindSpeed repositories.",
+  "author": {
+    "name": "fighting_zhen"
+  },
+  "license": "MIT",
+  "keywords": [
+    "documentation",
+    "review",
+    "lint",
+    "mindspeed",
+    "ascend"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Doc Agent",
+    "shortDescription": "Generate and review repository documentation",
+    "longDescription": "Runs deterministic documentation workflows with state-machine gates, schema-bound artifacts, lint-first review, and L0/L1/L2 quality checks.",
+    "developerName": "fighting_zhen",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Generate documentation for this repository",
+      "Review this document at L2 depth",
+      "Fix the open documentation quality issues"
+    ]
+  }
+}

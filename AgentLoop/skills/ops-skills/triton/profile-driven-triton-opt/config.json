@@ -1,0 +1,16 @@
+{
+  "bottleneck_threshold": 0.03,
+  "metric_mode": "speedup",
+  "target_speedup": 2.0,
+  "target_mfu": 60,
+  "arch": "auto",
+  "npu_device": null,
+  "npu_preflight": { "min_free_mb": 49152, "smi_timeout_seconds": 5 },
+  "run_mode": "serial_single_card",
+  "restructure": {
+    "enabled": false,
+    "scope": "method-body-dataflow,io-frozen",
+    "triggers": ["ir_point31_gather_reuse", "structural_gather_detector"],
+    "max_restructures": 2
+  }
+}

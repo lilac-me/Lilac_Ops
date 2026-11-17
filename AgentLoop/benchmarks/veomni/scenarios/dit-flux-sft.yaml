@@ -1,0 +1,23 @@
+# Flux DiT SFT：配置、批量 forward、图像条件 resize 与真实训练前置条件。
+scenario: dit-flux-sft
+model: Flux
+model_type: dit
+priority: P0
+trainer: dit
+parallel:
+  fsdp2: true
+  dp_shard_size: 16
+  ulysses_sp: false
+  ep: false
+stages:
+  - environment: {mode: npu, smoke_test: required}
+  - model-analysis: {reference_model: wan21}
+  - adaptation: {patchgen: [gpu, npu], tests: [config, local_weight, forward_single, forward_list, image_resize, train]}
+  - functional-validation: {min_steps: 1, checkpoint: true}
+  - parallel-recipe: {candidates_min: 2, dp_shard_size: 16, consistency_check: required}
+  - precision-alignment: {pairs: [[gpu, npu_single], [npu_single, npu_multi]]}
+  - mfu-calculation: {model_type: dit, latent_tokens_required: true}
+  - performance-tuning: {precision_rerun: required}
+  - delivery: {reports: [acceptance_report.json, delivery_coverage_report.md, migration_process_record.md]}
+fixtures:
+  config: benchmarks/veomni/fixtures/flux-sft-template.yaml

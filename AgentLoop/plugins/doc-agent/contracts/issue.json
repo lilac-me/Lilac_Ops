@@ -1,0 +1,28 @@
+{
+  "title": "Issue",
+  "description": "单个审查问题记录；必须绑定 rules.yaml 中的 rule_id",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "rule_id", "dimension", "severity", "location", "source", "status"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "rule_id": { "type": "string", "pattern": "^R-[A-Z]{3}-\\d{3}$" },
+    "dimension": { "enum": ["correctness", "completeness", "clarity", "accessibility"] },
+    "severity": { "enum": ["critical", "major", "minor"] },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "anchor": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": { "type": "string" },
+    "suggestion": { "type": "string" },
+    "source": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["open", "fixed", "verified", "closed", "disputed"] },
+    "ts": { "type": "string", "minLength": 1 }
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "NPU 故障修复"
+  short_description: "基于当前日志研究并修复一个具体的昇腾 NPU 运行故障"
+  default_prompt: "使用 $ecosystem-code-repository-npu-migration:repair，根据本地证据诊断一个当前失败的 NPU 目标，查询相关迁移知识和当前官方来源，进行最小相关修复，重跑同一命令，并返回精确证据或 blocker。"

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindSpeed-LLM FSDP2 lifecycle run manifest",
+  "type": "object",
+  "$defs": {
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "absolute_path": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "gate_status": {
+      "enum": ["passed", "failed", "blocked"]
+    }
+  },
+  "required": ["format_version", "run_id", "mode", "status", "repository", "model", "stages"],
+  "properties": {
+    "format_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["full", "adapt-only", "optimize-only", "resume"]},
+    "fusion_validation_strategy": {
+      "enum": ["sequential", "atomic-combined", "not-applicable"]
+    },
+    "status": {"enum": ["running", "success", "no_improvement", "failed", "blocked", "cancelled"]},
+    "repository": {
+      "type": "object",
+      "required": ["source_root", "worktree_root", "baseline_commit", "branch"],
+      "properties": {
+        "source_root": {"$ref": "#/$defs/absolute_path"},
+        "worktree_root": {"$ref": "#/$defs/absolute_path"},
+        "baseline_commit": {"$ref": "#/$defs/git_sha"},
+        "branch": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "model": {
+      "type": "object",
+      "required": ["name", "weight_dir", "modeling_source"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "weight_dir": {"$ref": "#/$defs/absolute_path"},
+        "modeling_source": {"$ref": "#/$defs/absolute_path"},
+        "configuration_source": {
+          "oneOf": [
+            {"$ref": "#/$defs/absolute_path"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "status",
+          "input_commit",
+          "output_commit",
+          "modified_files",
+          "gates",
+          "artifacts",
+          "summary",
+          "error"
+        ],
+        "properties": {
+          "stage": {
+            "enum": [
+              "pre_adaptation_analysis",
+              "model_adaptation",
+              "eager_precision",
+              "training_baseline",
+              "fused_operator",
+              "final_precision"
+            ]
+          },
+          "status": {"enum": ["success", "no_improvement", "failed", "blocked"]},
+          "input_commit": {"$ref": "#/$defs/git_sha"},
+          "output_commit": {
+            "oneOf": [
+              {"$ref": "#/$defs/git_sha"},
+              {"type": "null"}
+            ]
+          },
+          "modified_files": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+"
+            },
+            "uniqueItems": true
+          },
+          "gates": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {"$ref": "#/$defs/gate_status"}
+          },
+          "artifacts": {"type": "object", "minProperties": 1},
+          "summary": {"type": "string", "minLength": 1},
+          "error": {"type": ["string", "null"]}
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {"enum": ["success", "no_improvement"]}
+              },
+              "required": ["status"]
+            },
+            "then": {
+              "properties": {"error": {"type": "null"}}
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {"enum": ["failed", "blocked"]}
+              },
+              "required": ["status"]
+            },
+            "then": {
+              "properties": {
+                "error": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        ],
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

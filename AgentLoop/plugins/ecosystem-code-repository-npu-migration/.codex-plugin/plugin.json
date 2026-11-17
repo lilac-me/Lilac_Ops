@@ -1,0 +1,36 @@
+{
+  "name": "ecosystem-code-repository-npu-migration",
+  "version": "0.16.0",
+  "description": "面向 Codex 的提示词优先技能套件：借助迁移知识将 PyTorch 仓库适配到昇腾 NPU，并以直接运行证据验证结果。",
+  "author": {
+    "name": "addsubmuldiv",
+    "url": "https://github.com/addsubmuldiv"
+  },
+  "homepage": "https://github.com/addsubmuldiv/ecosystem-code-repository-npu-migration",
+  "repository": "https://github.com/addsubmuldiv/ecosystem-code-repository-npu-migration",
+  "keywords": [
+    "ascend",
+    "npu",
+    "migration",
+    "pytorch",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "昇腾 NPU 迁移",
+    "shortDescription": "将 PyTorch 仓库迁移到昇腾 NPU",
+    "longDescription": "引导主 Codex Agent 理解仓库、准备隔离的昇腾环境、按需将边界明确的任务委派给子 Agent，并完成知识辅助的源码适配、直接 NPU 验证、证据驱动的修复、报告和文档工作。",
+    "developerName": "addsubmuldiv",
+    "category": "开发工具",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "使用 ecosystem-code-repository-npu-migration 将当前 PyTorch 仓库迁移到昇腾 NPU，并完成有证据支撑的验证。",
+      "重新检查当前 checkout、选定的 Python、日志和语义产物，继续昇腾 NPU 迁移。",
+      "审查当前仓库的 NPU 支持情况并生成迁移报告。"
+    ]
+  }
+}

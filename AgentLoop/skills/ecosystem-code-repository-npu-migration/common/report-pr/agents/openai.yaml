@@ -1,0 +1,4 @@
+interface:
+  display_name: "NPU 迁移报告"
+  short_description: "整理直接 NPU 运行证据，生成保守的迁移报告和 PR 文本"
+  default_prompt: "使用 $ecosystem-code-repository-npu-migration:report-pr，将当前命令、日志、diff 和限制整理为保守报告，区分任务完成情况与 NPU 支持覆盖范围。"

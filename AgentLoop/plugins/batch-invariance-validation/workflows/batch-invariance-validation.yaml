@@ -1,0 +1,298 @@
+# Batch Invariance Validation Pipeline
+# YAML is the single source of truth for both Claude Code and Codex runtimes.
+
+pipeline:
+  name: batch-invariance-validation
+  version: "1.0.0"
+  description: TP 计划确认、环境准入、算子分析、功能验证和 Math500 验收流水线
+  initial_state: tp_plan_gate
+  total_spawn_cap: 64
+  structured_output_retry_cap: 2
+
+handoff_catalog:
+  TP_PLAN_CONFIRMED: {outcome: PASS}
+  TP_PLAN_AUTO_READY: {outcome: PASS}
+  TP_PLAN_UNCONFIRMED: {outcome: BLOCKED, reason_code: BLOCKED_TP_PLAN_UNCONFIRMED}
+  TP_PLAN_RESUME: {outcome: PASS}
+  ENVIRONMENT_READY: {outcome: PASS}
+  ENVIRONMENT_BLOCKED: {outcome: BLOCKED}
+  ENVIRONMENT_RESUME: {outcome: PASS}
+  PROFILING_READY: {outcome: PASS}
+  PROFILING_INVALID: {outcome: INVALID, reason_code: INVALID_PROFILING_CONFIG}
+  PHASE1_BLOCKED: {outcome: BLOCKED}
+  PHASE1_RESUME: {outcome: PASS}
+  ALLOWLIST_PASS: {outcome: PASS}
+  REVIEW_REQUIRED: {outcome: REVIEW_REQUIRED}
+  AUXILIARY_PATH_INVALID: {outcome: INVALID, reason_code: INVALID_PROFILING_CONFIG}
+  NON_CRITICAL_PATH_EXCLUDED: {outcome: PASS}
+  CRITICAL_PATH_OPERATOR: {outcome: REVIEW_REQUIRED}
+  BLACKLIST_REPLACEMENT_REVIEW: {outcome: FAIL, reason_code: FAIL_BLACKLIST}
+  OPERATOR_10K_PASS: {outcome: PASS}
+  OPERATOR_10K_BLOCKED: {outcome: BLOCKED}
+  OPERATOR_10K_FAIL: {outcome: FAIL}
+  REPLACEMENT_READY: {outcome: PASS}
+  REPLACEMENT_BLOCKED: {outcome: BLOCKED, reason_code: BLOCKED_REPLACEMENT_REQUIRES_USER_DECISION}
+  REPROFILE_READY: {outcome: PASS}
+  LONG_OUTPUT_PASS: {outcome: PASS}
+  PHASE2_BLOCKED: {outcome: BLOCKED}
+  PHASE2_RESUME_LONG_OUTPUT: {outcome: PASS}
+  PHASE2_RESUME_LONG_INPUT: {outcome: PASS}
+  PHASE2_RESUME_MATRIX: {outcome: PASS}
+  PHASE2_RESUME_DIAGNOSIS: {outcome: PASS}
+  LONG_INPUT_PASS: {outcome: PASS}
+  MATRIX_PASS: {outcome: PASS}
+  NUMERICAL_MISMATCH: {outcome: FAIL}
+  TP_PLAN_CHANGED: {outcome: BLOCKED, reason_code: BLOCKED_TP_PLAN_UNCONFIRMED}
+  DIAGNOSIS_FIXED: {outcome: PASS}
+  DIAGNOSIS_BLOCKED: {outcome: BLOCKED}
+  MATH500_PASS: {outcome: PASS}
+  MATH500_FAIL: {outcome: FAIL}
+  PHASE3_BLOCKED: {outcome: BLOCKED}
+  PHASE3_RESUME: {outcome: PASS}
+  FINALIZE_SUCCESS: {outcome: PASS}
+  FINALIZE_FAILURE: {outcome: FAIL}
+  RECOVERY_START: {outcome: RETRY, reason_code: RETRY_TRANSIENT_RESOURCE}
+  RECOVERY_ENVIRONMENT: {outcome: RETRY}
+  RECOVERY_PHASE1: {outcome: RETRY}
+  RECOVERY_PHASE2_LONG_OUTPUT: {outcome: RETRY}
+  RECOVERY_PHASE2_LONG_INPUT: {outcome: RETRY}
+  RECOVERY_PHASE2_MATRIX: {outcome: RETRY}
+  RECOVERY_PHASE2_DIAGNOSIS: {outcome: RETRY}
+  RECOVERY_PHASE3: {outcome: RETRY}
+  RECOVERY_EXHAUSTED: {outcome: BLOCKED, reason_code: BLOCKED_RECOVERY_EXHAUSTED}
+
+states:
+  - id: tp_plan_gate
+    agent: batch-invariance-validation:orchestrator
+    description: 根据可见设备、模型结构和加载能力自动生成 TP 计划并原子写入 run_config.json
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: TP_PLAN_AUTO_READY"}, goto: environment_admission, rationale: 自动 TP 计划已通过结构门禁；容量由实际加载验证}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CONFIRMED"}, goto: environment_admission, rationale: TP 计划已明确确认}
+      - {condition: {handoff_match: "handoff: TP_PLAN_UNCONFIRMED"}, goto: blocked_tp_plan_unconfirmed, rationale: TP 计划尚未确认}
+      - {condition: {always: true}, goto: blocked_tp_plan_unconfirmed, rationale: fail-closed：任何非精确交接均不得越过 TP 门禁}
+
+  - id: blocked_tp_plan_unconfirmed
+    agent: null
+    description: 等待用户明确确认 TP 计划
+    pause: true
+    reason_code: BLOCKED_TP_PLAN_UNCONFIRMED
+    resume_state: tp_plan_gate
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: TP_PLAN_RESUME"}, goto: tp_plan_gate, rationale: 收到用户后续确认，重新执行门禁}
+      - {condition: {always: true}, goto: blocked_tp_plan_unconfirmed, rationale: fail-closed：保持暂停且禁止派生阶段 Agent}
+
+  - id: environment_admission
+    agent: batch-invariance-validation:environment-admission
+    description: 检查版本快照、算子包、SO、Torch 注册、芯片、设备和 TP
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: ENVIRONMENT_READY"}, goto: phase1_profiling, rationale: 环境五项准入检查通过}
+      - {condition: {handoff_match: "handoff: ENVIRONMENT_BLOCKED"}, goto: blocked_environment, rationale: 环境或证据不满足准入要求}
+      - {condition: {always: true}, goto: blocked_environment, rationale: fail-closed：未知环境结论不得进入阶段一}
+
+  - id: blocked_environment
+    agent: null
+    description: 等待修复环境准入问题
+    pause: true
+    resume_state: environment_admission
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: RECOVERY_START"}, goto: recovery_controller, rationale: 读取环境证据并启动受限恢复}
+      - {condition: {handoff_match: "handoff: ENVIRONMENT_RESUME"}, goto: environment_admission, rationale: 修复后重新执行完整环境准入}
+      - {condition: {always: true}, goto: blocked_environment, rationale: fail-closed：保持环境暂停}
+
+  - id: phase1_profiling
+    agent: batch-invariance-validation:phase1-operator-analysis
+    description: 按合规正式请求采集逐 rank profiling
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: PROFILING_READY"}, goto: phase1_triage, rationale: profiling 证据完整}
+      - {condition: {handoff_match: "handoff: PROFILING_INVALID"}, goto: phase1_profiling, rationale: 配置非法，保持目标参数重新采集}
+      - {condition: {handoff_match: "handoff: PHASE1_BLOCKED"}, goto: blocked_phase1, rationale: profiling 缺失或执行受阻}
+      - {condition: {always: true}, goto: blocked_phase1, rationale: fail-closed：无有效 profiling 不得分析}
+
+  - id: phase1_triage
+    agent: batch-invariance-validation:phase1-operator-analysis
+    description: 逐 rank 比对白名单和强制黑名单
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: ALLOWLIST_PASS"}, goto: phase2_long_output, rationale: 全部关键路径算子均在白名单}
+      - {condition: {handoff_match: "handoff: REVIEW_REQUIRED"}, goto: phase1_critical_path_review, rationale: 存在白名单外算子}
+      - {condition: {handoff_match: "handoff: BLACKLIST_REPLACEMENT_REVIEW"}, goto: phase1_replacement, rationale: 保留 FAIL_BLACKLIST 后检查替换路径}
+      - {condition: {handoff_match: "handoff: PHASE1_BLOCKED"}, goto: blocked_phase1, rationale: 分析证据不足}
+      - {condition: {always: true}, goto: blocked_phase1, rationale: fail-closed：未完成分类不得继续}
+
+  - id: phase1_critical_path_review
+    agent: batch-invariance-validation:phase1-operator-analysis
+    description: 根据 shape、dtype、调用栈和实际代码判定关键路径
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: AUXILIARY_PATH_INVALID"}, goto: phase1_profiling, rationale: 辅助支路污染正式请求，重新采集}
+      - {condition: {handoff_match: "handoff: NON_CRITICAL_PATH_EXCLUDED"}, goto: phase2_long_output, rationale: 已保存非关键路径排除证据}
+      - {condition: {handoff_match: "handoff: CRITICAL_PATH_OPERATOR"}, goto: phase1_operator_10k, rationale: 关键路径算子进入 10000 条验证}
+      - {condition: {handoff_match: "handoff: BLACKLIST_REPLACEMENT_REVIEW"}, goto: phase1_replacement, rationale: 黑名单关键路径进入替换审查}
+      - {condition: {handoff_match: "handoff: PHASE1_BLOCKED"}, goto: blocked_phase1, rationale: 关键路径证据不足}
+      - {condition: {always: true}, goto: blocked_phase1, rationale: fail-closed：关键路径判定不完整}
+
+  - id: phase1_operator_10k
+    agent: batch-invariance-validation:phase1-operator-analysis
+    description: 执行 10000 条有效 NPU 单算子用例
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: OPERATOR_10K_PASS"}, goto: phase2_long_output, rationale: 单算子按位一致}
+      - {condition: {handoff_match: "handoff: OPERATOR_10K_BLOCKED"}, goto: blocked_phase1, rationale: OOM、接口、环境或有效用例不足}
+      - {condition: {handoff_match: "handoff: OPERATOR_10K_FAIL"}, goto: phase1_replacement, rationale: 单算子验证失败，评估小算子替换}
+      - {condition: {always: true}, goto: blocked_phase1, rationale: fail-closed：单算子结论不完整}
+
+  - id: phase1_replacement
+    agent: batch-invariance-validation:phase1-operator-analysis
+    description: 基于实际代码和 mutation_policy 审查或实施隔离替换
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: REPLACEMENT_READY"}, goto: phase1_reprofile, rationale: 替换关系、实现和位置均有代码证据}
+      - {condition: {handoff_match: "handoff: REPLACEMENT_BLOCKED"}, goto: blocked_phase1, rationale: 替换方案需要用户决策}
+      - {condition: {always: true}, goto: blocked_phase1, rationale: fail-closed：不得猜测或擅自修改}
+
+  - id: phase1_reprofile
+    agent: batch-invariance-validation:phase1-operator-analysis
+    description: 替换后重新 profiling 并确认实际目标算子路径
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: REPROFILE_READY"}, goto: phase1_operator_10k, rationale: 重采确认后复测 10000 条}
+      - {condition: {handoff_match: "handoff: PROFILING_INVALID"}, goto: phase1_profiling, rationale: 重采配置非法}
+      - {condition: {handoff_match: "handoff: PHASE1_BLOCKED"}, goto: blocked_phase1, rationale: 重采或替换证据不足}
+      - {condition: {always: true}, goto: blocked_phase1, rationale: fail-closed：重采未确认不得复测}
+
+  - id: blocked_phase1
+    agent: null
+    description: 等待阶段一环境、证据或用户决策问题解决
+    pause: true
+    resume_state: phase1_profiling
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: RECOVERY_START"}, goto: recovery_controller, rationale: 读取阶段一证据并启动受限恢复}
+      - {condition: {handoff_match: "handoff: PHASE1_RESUME"}, goto: phase1_profiling, rationale: 修复后从 profiling 重新建立证据链}
+      - {condition: {always: true}, goto: blocked_phase1, rationale: fail-closed：保持阶段一暂停}
+
+  - id: phase2_long_output
+    agent: batch-invariance-validation:phase2-functional-validation
+    description: 执行确认 TP 下的 BS=64、约 2k 到 20k 长输出场景
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: LONG_OUTPUT_PASS"}, goto: phase2_long_input, rationale: 长输出场景通过}
+      - {condition: {handoff_match: "handoff: NUMERICAL_MISMATCH"}, goto: phase2_failure_diagnosis, rationale: 固定失败配置并定位数值异常}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CHANGED"}, goto: tp_plan_gate, rationale: TP 修改返回自动规划门禁，记录历史并重新准入}
+      - {condition: {handoff_match: "handoff: PHASE2_BLOCKED"}, goto: blocked_phase2, rationale: 场景证据或容量阻塞}
+      - {condition: {always: true}, goto: blocked_phase2, rationale: fail-closed：长输出结论不完整}
+
+  - id: phase2_long_input
+    agent: batch-invariance-validation:phase2-functional-validation
+    description: 执行确认 TP 下的 BS=64、约 20k 到 2k 长输入场景
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: LONG_INPUT_PASS"}, goto: phase2_matrix, rationale: 长输入场景通过}
+      - {condition: {handoff_match: "handoff: NUMERICAL_MISMATCH"}, goto: phase2_failure_diagnosis, rationale: 固定失败配置并定位数值异常}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CHANGED"}, goto: tp_plan_gate, rationale: TP 修改返回自动规划门禁，记录历史并重新准入}
+      - {condition: {handoff_match: "handoff: PHASE2_BLOCKED"}, goto: blocked_phase2, rationale: 场景证据或容量阻塞}
+      - {condition: {always: true}, goto: blocked_phase2, rationale: fail-closed：长输入结论不完整}
+
+  - id: phase2_matrix
+    agent: batch-invariance-validation:phase2-functional-validation
+    description: 执行 TP=1/2/4、BS=16/32、多长度且各三轮的矩阵
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: MATRIX_PASS"}, goto: phase3_math500, rationale: 至少一个 TP 完整通过且无未解决执行失败}
+      - {condition: {handoff_match: "handoff: NUMERICAL_MISMATCH"}, goto: phase2_failure_diagnosis, rationale: 固定失败 manifest 并定位}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CHANGED"}, goto: tp_plan_gate, rationale: TP 修改返回自动规划门禁，记录历史并重新准入}
+      - {condition: {handoff_match: "handoff: PHASE2_BLOCKED"}, goto: blocked_phase2, rationale: 资源跳过不外推且无足够通过证据，或场景阻塞}
+      - {condition: {always: true}, goto: blocked_phase2, rationale: fail-closed：矩阵结论不完整}
+
+  - id: phase2_failure_diagnosis
+    agent: batch-invariance-validation:phase2-functional-validation
+    description: 按 scheduler/profiling/单算子、TP 缩小、msprobe 顺序定位
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: DIAGNOSIS_FIXED"}, goto: phase2_long_output, rationale: 修复后重跑完整阶段二}
+      - {condition: {handoff_match: "handoff: DIAGNOSIS_BLOCKED"}, goto: blocked_phase2, rationale: 定位证据或工具条件不足}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CHANGED"}, goto: tp_plan_gate, rationale: TP 修改返回自动规划门禁，记录历史并重新准入}
+      - {condition: {always: true}, goto: blocked_phase2, rationale: fail-closed：数值异常未闭环}
+
+  - id: blocked_phase2
+    agent: null
+    description: 等待阶段二容量、参数、调度或定位证据问题解决
+    pause: true
+    resume_states: [phase2_long_output, phase2_long_input, phase2_matrix, phase2_failure_diagnosis]
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: RECOVERY_START"}, goto: recovery_controller, rationale: 读取原失败场景证据并启动受限恢复}
+      - {condition: {handoff_match: "handoff: PHASE2_RESUME_LONG_OUTPUT"}, goto: phase2_long_output, rationale: 恢复原长输出失败场景}
+      - {condition: {handoff_match: "handoff: PHASE2_RESUME_LONG_INPUT"}, goto: phase2_long_input, rationale: 恢复原长输入失败场景}
+      - {condition: {handoff_match: "handoff: PHASE2_RESUME_MATRIX"}, goto: phase2_matrix, rationale: 恢复原矩阵失败场景}
+      - {condition: {handoff_match: "handoff: PHASE2_RESUME_DIAGNOSIS"}, goto: phase2_failure_diagnosis, rationale: 恢复异常定位}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CHANGED"}, goto: tp_plan_gate, rationale: 修改 TP 后自动重规划并重新准入}
+      - {condition: {always: true}, goto: blocked_phase2, rationale: fail-closed：保持阶段二暂停}
+
+  - id: phase3_math500
+    agent: batch-invariance-validation:phase3-dataset-acceptance
+    description: 固定确定性配置执行 Math500 全量十轮验收
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: MATH500_PASS"}, goto: finalize, rationale: 精度、500 样本、评分和原始文本均一致}
+      - {condition: {handoff_match: "handoff: MATH500_FAIL"}, goto: finalize, rationale: 已取得充分失败证据，进入失败汇总}
+      - {condition: {handoff_match: "handoff: PHASE3_BLOCKED"}, goto: blocked_phase3, rationale: 环境或证据不足}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CHANGED"}, goto: tp_plan_gate, rationale: TP 修改返回自动规划门禁，记录历史并重新准入}
+      - {condition: {always: true}, goto: blocked_phase3, rationale: fail-closed：Math500 结论不完整}
+
+  - id: blocked_phase3
+    agent: null
+    description: 等待阶段三环境或证据问题解决
+    pause: true
+    resume_state: phase3_math500
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: RECOVERY_START"}, goto: recovery_controller, rationale: 读取阶段三证据并启动受限恢复}
+      - {condition: {handoff_match: "handoff: PHASE3_RESUME"}, goto: phase3_math500, rationale: 修复后重跑 Math500 验收}
+      - {condition: {handoff_match: "handoff: TP_PLAN_CHANGED"}, goto: tp_plan_gate, rationale: TP 修改返回自动规划门禁，记录历史并重新准入}
+      - {condition: {always: true}, goto: blocked_phase3, rationale: fail-closed：保持阶段三暂停}
+
+  - id: recovery_controller
+    agent: batch-invariance-validation:orchestrator
+    description: 对暂停原因执行有证据、有限次且可审计的恢复
+    goal: 在不降低验收标准的前提下恢复原失败状态，并重新执行该状态的完整验证
+    allowed_actions:
+      - inspect_failure_evidence
+      - form_root_cause_hypothesis
+      - apply_minimal_repair
+      - rerun_failed_state
+      - compare_before_after_evidence
+      - record_reflection
+    forbidden_actions:
+      - lower_acceptance_threshold
+      - discard_failure_evidence
+      - expand_beyond_visible_devices
+      - repeat_without_new_evidence_or_action
+    attempt_limits: {same_issue: 5, same_stage: 10, whole_run: 20}
+    required_artifacts: [recovery_attempts.jsonl]
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: RECOVERY_ENVIRONMENT"}, goto: environment_admission, rationale: 环境修复后完整复检}
+      - {condition: {handoff_match: "handoff: RECOVERY_PHASE1"}, goto: phase1_profiling, rationale: 阶段一修复后重建完整证据链}
+      - {condition: {handoff_match: "handoff: RECOVERY_PHASE2_LONG_OUTPUT"}, goto: phase2_long_output, rationale: 恢复长输出失败场景}
+      - {condition: {handoff_match: "handoff: RECOVERY_PHASE2_LONG_INPUT"}, goto: phase2_long_input, rationale: 恢复长输入失败场景}
+      - {condition: {handoff_match: "handoff: RECOVERY_PHASE2_MATRIX"}, goto: phase2_matrix, rationale: 恢复矩阵失败场景}
+      - {condition: {handoff_match: "handoff: RECOVERY_PHASE2_DIAGNOSIS"}, goto: phase2_failure_diagnosis, rationale: 恢复异常定位}
+      - {condition: {handoff_match: "handoff: RECOVERY_PHASE3"}, goto: phase3_math500, rationale: 恢复 Math500 验收}
+      - {condition: {handoff_match: "handoff: RECOVERY_EXHAUSTED"}, goto: recovery_exhausted, rationale: 五轮或累计预算耗尽后停止修改并通知用户}
+      - {condition: {always: true}, goto: recovery_exhausted, rationale: fail-closed：无有效修复记录不得继续}
+
+  - id: recovery_exhausted
+    agent: null
+    description: 恢复预算耗尽，保留诊断、修改和验证证据并等待用户处理
+    goal: 停止继续修改并准确说明未解决原因、已尝试动作和后续可选路径
+    allowed_actions: [generate_recovery_exhausted_report]
+    required_artifacts: [recovery_attempts.jsonl, recovery_exhausted.md]
+    terminal: true
+    outcome: BLOCKED
+
+  - id: finalize
+    agent: batch-invariance-validation:orchestrator
+    description: 验证证据哈希并生成最终报告
+    exit_transitions:
+      - {condition: {handoff_match: "handoff: FINALIZE_SUCCESS"}, goto: done, rationale: 完整验收成功}
+      - {condition: {handoff_match: "handoff: FINALIZE_FAILURE"}, goto: failed, rationale: 业务失败证据充分}
+      - {condition: {always: true}, goto: failed, rationale: fail-closed：汇总不完整按失败终止}
+
+  - id: done
+    agent: null
+    description: 完整批次不变性验收通过
+    terminal: true
+    outcome: PASS
+
+  - id: failed
+    agent: null
+    description: 业务失败或最终证据校验失败
+    terminal: true
+    outcome: FAIL

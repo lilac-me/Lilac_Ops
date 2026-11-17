@@ -1,0 +1,112 @@
+# doc-agent 状态机定义（单一真相源）
+# 条件语法（when 字段）：
+#   handoff:<TOKEN>        最后一条 handoff 行匹配
+#   iter_below_cap:<s>:<n> 账本中进入状态 <s> 的次数 < n
+#   always                 恒真（兜底）
+# 门控（gates 字段，全部为 AND）：
+#   product_exists:<glob>   至少一个匹配文件存在且非空
+#   schema_valid:<file>     文件按 contracts 对应 Schema 校验通过
+#   score_pass               quality_report.json 的 verdict == "pass"
+# fallback：门控失败时回退到的状态（缺省留在当前状态）
+
+states:
+  - name: init
+    transitions:
+      - when: handoff:CONTEXT_READY
+        to: context
+      - when: handoff:PLAN_READY
+        to: plan
+      - when: always
+        to: init
+
+  - name: context
+    transitions:
+      - when: handoff:DESIGN_READY
+        gates:
+          - product_exists:context_report.json
+          - schema_valid:context_report.json
+        to: design
+        fallback: init
+      - when: always
+        to: context
+
+  - name: design
+    transitions:
+      - when: handoff:DESIGN_DONE
+        gates:
+          - schema_valid:design_plan.json
+        to: confirm
+        fallback: context
+      - when: always
+        to: design
+
+  - name: confirm
+    transitions:
+      - when: handoff:USER_APPROVED
+        gates:
+          - product_exists:design_approval.md
+          - schema_valid:design_plan.json
+        to: write
+      - when: handoff:USER_REJECT
+        to: design
+      - when: always
+        to: confirm
+
+  - name: write
+    transitions:
+      - when: handoff:REVIEW_READY
+        gates:
+          - product_exists:draft_*.md
+          - schema_valid:figure_requests.json
+        to: review
+        fallback: design
+      - when: always
+        to: write
+
+  - name: plan
+    transitions:
+      - when: handoff:REVIEW_READY
+        to: review
+      - when: always
+        to: plan
+
+  - name: review
+    transitions:
+      - when: handoff:PASSED
+        gates:
+          - score_pass
+          - lint_complete
+          - review_complete
+          - code_verify_present
+        to: finalize
+      - when: handoff:NEED_FIX
+        gates:
+          - iter_below_cap:fix:3
+        to: fix
+      - when: handoff:NEED_FIX
+        to: finalize
+      - when: handoff:MANUAL_INTERVENTION
+        to: finalize
+      - when: always
+        to: review
+
+  - name: fix
+    transitions:
+      - when: handoff:FIXED
+        to: review
+      - when: handoff:MANUAL_INTERVENTION
+        to: finalize
+      - when: always
+        to: fix
+
+  - name: finalize
+    transitions:
+      - when: handoff:DONE
+        to: done
+      - when: always
+        to: finalize
+
+  - name: done
+    transitions:
+      - when: always
+        to: done

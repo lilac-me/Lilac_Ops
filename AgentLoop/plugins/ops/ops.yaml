@@ -1,0 +1,423 @@
+# Harness Workflow — Agent DAG + State Machine
+# ==============================================
+# YAML 定义状态转移（单源真相），Python 提供运行时引擎。
+# 每个阶段结束时输出 handoff token，下游解析后继续。
+# 追加式日志 state_transitions.jsonl 不重写，历史可审计。
+#
+# Usage:
+#   python -m harness -w ops -o "算子描述"
+
+name: "ops-dev"
+version: "2.0"
+description: "昇腾 NPU 算子开发（Triton / Ascend C / TileLang 三语言）：Design → Implement → Optimize (3轮迭代)"
+
+# 全局迭代上限
+iteration_caps:
+  design: 1        # 设计只做 1 次
+  implement: 1     # 落地只做 1 次
+  optimize:           # 按算子类型动态上限
+    VV: 3             # element-wise / reduction: 3 轮足够
+    CV: 5             # matmul / attention: Cube Core 多维度调优需更多轮
+    default: 3
+  total_spawns: 10    # 全局上限
+
+# ---------------------------------------------------------------------------
+# Agent 注册 — 声明流水线中可用的 Agent
+# ---------------------------------------------------------------------------
+agents:
+  ops-design:
+    plugin: "ops"                              # 对应 plugins/ops/
+    entry: "ops-design-agent"
+    role: "设计详设"
+    description: "需求分析、可行性评估、Tiling 方案、内存规划、测试策略"
+
+  ops-implement:
+    plugin: "ops"
+    entry: "ops-implement-agent"
+    role: "算子落地"
+    description: "代码生成、自检视、远端测试、Profiling 采集、报告产出"
+
+  ops-optimize:
+    plugin: "ops"
+    entry: "ops-optimize-agent"
+    role: "迭代优化"
+    description: "Profiling 瓶颈分析 → 定向优化 → 重测对比, 最多 3 轮迭代"
+
+# ---------------------------------------------------------------------------
+# 流水线 — 阶段定义（depends_on 声明上下游关系）
+# ---------------------------------------------------------------------------
+pipeline:
+  # ---- Stage 1: 设计 ----
+  - stage: design
+    agent: ops-design                          # ← 引用上面 agents 的 key
+    depends_on: []                             # 无上游依赖，入口阶段
+
+    # 入口检查: 确保 workspace 已创建
+    precondition: []
+
+    input:
+      - source: user                           # 来自用户输入
+        as: requirement                        # 在 prompt 中引用为 {requirement}
+
+    output:
+      - design.md                               # design.md 写入 outputs/{op}/ 目录
+      - env_snapshot.md                        # 环境快照
+
+    # 出口检查: design.md 存在 + 反作弊验证
+    gate:
+      - file: design.md
+        min_bytes: 500
+      - anti_cheat: true   # 禁止 nn.XXX / F.xxx包装冒充；必须是真实Ascend C kernel 实现或Triton 原生实现
+
+    prompt: |
+      你是昇腾算子设计专家（{agent.role}）。
+
+      需求: {requirement}
+      开发语言: {dev_lang}            # triton | ascendc | tilelang（决定详细设计路径）
+      目标架构: {target_arch}         # arch22 (A2/A3) 或 arch35 (Ascend 950)
+
+      **状态检查**: 开始前确认当前阶段为 design，迭代计数未超上限。
+
+      任务:
+      1. 分析需求、评估 NPU 迁移可行性
+      2. 确定开发方式（dev_lang），据此完成详细设计:
+          - 若 dev_lang = triton: 调用 ops-design
+              * 硬件约束（UB 预算 / Grid 边界 / 对齐）
+              * Tiling 方案（BLOCK_SIZE / Grid / SUB 切分）
+              * 内存规划（UB 分配表 / buffer 复用）
+              * 计算调度 + Kernel 架构
+          - 若 dev_lang = ascendc: 调用 ascendc-design
+              * 按 target_arch 分支：arch22 (A2/A3, SIMD, 192KB UB) / arch35 (950, SIMT/Blaze, 256KB UB)
+              * Tiling 方案（block_dim 多核切分 / UB TILE 切分 / double buffer）
+              * 内存规划（TPipe AllocTensor 分配表 / buffer 复用）
+              * 计算调度（CopyIn/Compute/CopyOut 三段流水）+ Kernel 形态（直调 / DSL / aclNN / CATLASS）
+          - 若 dev_lang = tilelang: 调用 tilelang-design
+              * 按 target_arch 分支：arch22 (A2/A3 → tilelang-mlir-ascend) / arch35 (950 → tilelang USE_ASCEND)
+              * 片上内存规划（T.alloc_shared → UB / T.alloc_fragment → 寄存器，UB 预算）
+              * Grid 与 Tiling 设计（T.Kernel 一维 grid / T.gemm 的 BM/BN/BK）
+              * Pipeline 与调度（T.Pipelined num_stages / epilogue T.Parallel 布局）
+              * Kernel 架构（@tilelang.jit + T.prim_func 接口 / host 侧 launch）
+      3. 测试策略（shape×dtype 矩阵 / 边界 / 门禁，复用 ops-test-gen 规范）
+      4. Write 设计文档 → outputs/{op}/design.md（含 dev_lang 与 target_arch 标注）
+      5. 确认文件存在且非空
+
+      产出: {output.design.md}
+
+      反作弊: 禁止用 torch.nn.functional / F.xxx / Triton 包装冒充 Ascend C；Ascend C 必须是真实 kernel 实现。
+
+      **结束时输出**: `→ handoff: DESIGN_DONE`
+
+  # ---- Stage 2: 落地 ----
+  - stage: implement
+    agent: ops-implement
+    depends_on: [design]                       # ← 依赖 design 阶段完成
+
+    # 入口检查: design.md 必须存在
+    precondition:
+      - file: design.md
+        source: design
+
+    # 出口门禁: 所有产出文件必须存在且非空
+    #
+    # 门禁必须覆盖**能力评测实际读取的每一份产物**，否则会出现两头不一致：
+    # 评测的 D3 要求交付物齐备、D2 优先读结构化的 bench_result.json、D4 读 bottleneck.json，
+    # 这几项若不在门禁里，就会出现「过了门禁却掉分」；反过来，门禁要的文件若 prompt 没让产出，
+    # 就会出现「按 prompt 做完却过不了门禁」。
+    #
+    # ⚠️ 门禁**故意不检查 kernel 源码文件**：它的路径由 dev_lang 决定
+    # （triton → kernel.py；ascendc → op_kernel/ · op_host/ · csrc/ 或 op_extension/），
+    # 写死任一个都会让另一条路径永远过不了门禁。下面 9 项都与 dev_lang 无关。
+    gate:
+      - file: test.py
+        min_bytes: 1
+      - file: test_result.md
+        min_bytes: 200
+      - file: speedup.md
+        min_bytes: 200
+      - file: bench_result.json
+        min_bytes: 50
+      - file: bottleneck.md
+        min_bytes: 200
+      - file: bottleneck.json
+        min_bytes: 50
+      - file: env_snapshot.md
+        min_bytes: 1
+      - file: execution_log.md
+        min_bytes: 100
+      - file: delivery.md
+        min_bytes: 200
+
+    input:
+      - source: user                           # 用户原始需求
+        as: requirement
+      - source: design                         # ← 来自上游 design 阶段
+        file: design.md                        # 读取 {design.output.design.md}
+        as: design_doc
+
+    output:
+      - kernel.py            # triton 路径
+      - op_kernel/<op>.cpp   # ascendc 路径：device kernel
+      - op_host/<op>.cpp     # ascendc 路径：host 直调入口
+      - op_host/<op>_tiling.h  # ascendc 路径：Tiling 结构（kernel/host 共用）
+      - op_extension/        # ascendc 路径：适配层（torch 扩展或 aclnn）
+      - test.py
+      - test_result.md
+      - speedup.md
+      - bench_result.json
+      - bottleneck.md
+      - bottleneck.json
+      - env_snapshot.md
+      - execution_log.md
+
+    prompt: |
+      你是昇腾算子落地专家（{agent.role}）。
+
+      需求: {requirement}
+      设计文档: {design_doc}
+      开发语言: {dev_lang}            # triton | ascendc | tilelang
+      目标架构: {target_arch}         # arch22 (A2/A3) 或 arch35 (Ascend 950)
+
+      **阶段0 环境确认（必做）**: SSH {npu.host} 容器 {npu.container} 验证 NPU 可用；
+      dev_lang=ascendc 时额外用 ascendc-env-check 确认 CANN / 架构；dev_lang=triton 时确认 Triton 版本；
+      dev_lang=tilelang 时确认 tilelang 后端可用（A2/A3 走 tilelang-mlir-ascend，950 走 tilelang USE_ASCEND）。
+
+      **阶段A/B/C/D 按 dev_lang 分支**:
+
+      ── 若 dev_lang = triton ──
+      1. 读取 design.md，按 Tiling 方案生成 Triton kernel 代码（triton-op-dev）
+      2. 生成 pytest + torch_npu.profiler 采集脚本 (Level1)
+      3. SSH {npu.host} 容器 {npu.container} 执行:
+         a. pytest (L1-L5)
+         b. torch_npu.profiler 采集多shape×dtype (kernel_details.csv 同时含性能 + pipeline 数据)
+         c. 性能标杆: torch.nn.functional.* 在相同 shape/dtype 下的 Duration
+      4. Write:
+         - test_result.md（L1-L5 填实际数字）
+         - speedup.md（speedup vs 标杆 + 跨shape延迟矩阵）
+         - bottleneck.md（kernel_details.csv 分析 + 决策树瓶颈 + 优化建议表）
+         - delivery.md（成果梳理初版: 精度+性能+优化历程；optimize 收敛时更新为最终交付总结）
+         - execution_log.md（阶段时间线）
+      （另有两条路径共用的结构化产物，见本阶段末尾「两条路径共用的结构化产物」，不要漏。）
+      注意: 性能测量**禁止**使用 time.perf_counter(), 必须用 torch_npu.profiler(Level1) → kernel_details.csv Duration(us)
+
+       ── 若 dev_lang = ascendc ──
+       1. 读取 design.md，按架构选择工程形态并生成 Ascend C 代码（ascendc-op-dev + ascendc-vector-dev）:
+          **向量化开发要求**：采用 Ascend 架构独有的向量化开发模式，避免大规模标量操作。批量数据用 DataCopy/DataCopyPad；sin/cos/atan 用向量硬件指令（SetFlag/WaitFlag<V_S> 同步）；顺序算法拆「并行矩阵+向量归约」；TQue 双缓冲；EnQue/DeQue/HardEvent 同步正确。常见易错点见 ascendc-vector-dev。
+          - 默认 Kernel 直调工程（ascendc-direct-invoke-template，`<<<>>>` 调用）
+          - 950 Matmul/融合 → CATLASS/Blaze（catlass-op-design + catlass-op-develop）
+          - 生产入库 → aclNN（ascendc-registry-invoke-template）
+          - 经 torch-ascendc-op-extension 注册为 torch.ops.npu.xxx，复用 ops-test-gen (pytest + torch_npu.profiler)
+      2. 生成测试 harness（pytest + torch_npu.profiler，与 Triton 路径一致）
+      3. SSH 远端编译 + 运行: 直调程序 / pytest (L1-L5) + torch_npu.profiler 多shape×dtype (kernel_details.csv)
+      4. 运行异常先调用 ascendc-op-debug / ascendc-precision-debug / ascendc-crash-debug 假设驱动定位，再修复
+      5. 代码检视调用 ascendc-code-review
+
+       ── 若 dev_lang = tilelang ──
+       1. 读取 design.md，按后端路线生成 TileLang 代码（tilelang-op-dev）:
+          - @tilelang.jit(out_idx=[-1], target="ascend") + T.prim_func 定义 kernel，T.Kernel 声明一维 AI-core grid
+          - 全局↔片上经 T.copy；片上计算经 T.gemm（输入 T.alloc_shared、累加器 T.alloc_fragment）
+          - K 循环用 T.Pipelined，epilogue 用 T.Parallel（包在 T.SimtVF/T.SimdVF 内），累加器 T.clear + fp32
+          - host 侧 launch 负责 shape 归一化、pad、dtype 分派；生产 GEMM 用内置 tilelang.ascend.op.gemm
+       2. 生成 pytest + torch_npu.profiler 采集脚本 (Level1)
+       3. SSH 远端执行 pytest (L1-L5) + torch_npu.profiler 多 shape×dtype（kernel_details.csv）
+       4. Write test_result.md / speedup.md / bottleneck.md / delivery.md / execution_log.md
+       注意: 性能测量禁止 time.perf_counter()，必须用 torch_npu.profiler(Level1) → kernel_details.csv Duration(us)
+
+      落盘（全部写入 outputs/{op}/）:
+          - dev_lang=triton: kernel.py + test.py；dev_lang=ascendc: kernel.cpp(+main.cpp/CMake) + test.py（torch 扩展路径）
+          - dev_lang=tilelang: kernel.py（@tilelang.jit）+ test.py
+          - test_result.md（L1-L5 填实际数字）
+          - speedup.md（speedup vs 标杆 + 跨shape延迟矩阵）
+          - bottleneck.md（kernel_details.csv 分析 + 决策树瓶颈 + 优化建议表）
+          - delivery.md（最终成果梳理: 精度+性能+优化历程）
+          - execution_log.md（阶段时间线）
+      注意: 性能测量**禁止**使用 time.perf_counter(), 必须用 torch_npu.profiler(Level1) → kernel_details.csv Duration(us)
+      反作弊: dev_lang=ascendc 时禁止用 torch.nn.functional / F.xxx / Triton 包装冒充 Ascend C；dev_lang=tilelang 时禁止用 torch.nn.functional / F.xxx 包装冒充 TileLang kernel。
+
+      **两条路径共用的结构化产物（无论 dev_lang 是哪条都必须落盘；出口门禁也检查这三份）**:
+
+      - bench_result.json（**结构化性能证据**，机读版；能力评测的 D2 维度直接读它。
+        每个 {shape × dtype} 一行，speedup = torch 参考耗时 / 你的实现耗时：
+          shape:        [<int>, ...]                    测的 tensor 形状
+          dtype:        "torch.float16" | "torch.float32"
+          speedup:      <float>
+          speedup_std:  <float>   重复测量的标准差——**必须重复 ≥3 次**，单次采样不算证据
+          runs:         <int>     参与取中位数的有效次数
+          triton_us / torch_us: <float>  中位耗时(us)，建议给（ascendc 路径给 kernel 侧耗时）
+        缺 `speedup` 的行评测会直接忽略，等价于该形状没测到（会影响覆盖率闸门）；
+        缺 `speedup_std`/`runs` 则不作为噪声证据，性能维度按无噪声数据处理。
+        有此文件时评测走结构化路径；没有则退回解析 speedup.md 的 Markdown
+        （脆弱、且拿不到噪声证据），所以这份必须落盘。）
+
+      - bottleneck.json（**结构化瓶颈契约**，机读版；结论必须与 bottleneck.md 一致。
+        它被下游 optimize 阶段与能力评测的 D4 维度直接读取。评测逐项核对结构：
+        字段齐全、取值在枚举内、并且 classification 与**该 case 实测确认过的瓶颈**
+        相符才拿满分。classification 取错即使格式合法也不给分——凭印象挑一个枚举
+        拿不到分，必须由你自己的 profiling 数据推出来。）
+        字段与枚举：
+          classification: 六选一 —— memory_bound / compute_bound / launch_bound /
+                          reduction_bound / bandwidth_bound / attention_bound
+          bandwidth:      {"measured": <数值>, "unit": "TB/s", "utilization_pct": <0-100>}
+          suggestions:    [{"id": "S1", "priority": P0|P1|P2|P3, "actionable": <bool>}, ...]
+          convergence:    {"reason": NO_SUGGESTIONS|HARDWARE_LIMIT|TARGET_MET|
+                                    NO_IMPROVEMENT|CAP,
+                           "judgement": "<一句话说明为什么到此收敛>"}
+        收敛原因枚举与 optimize 阶段的 handoff token 一致；implement 阶段若尚未收敛，
+        convergence.reason 可留待 optimize 阶段收敛时更新。
+
+      - env_snapshot.md（NPU 型号 / Triton 或 CANN 版本 / target_arch / 兼容性记录。
+        **性能数字必须在空闲卡上采集**，建议把 `npu-smi info` 快照一并记入：
+        实测中被别的任务占用的卡（HBM 45.7/65.5GB、AICore 38%）会让同一算子的
+        重复测量标准差飙到 32%，那种数字不能当基线。）
+
+      **状态检查**: 开始前确认 bottleneck.md + bottleneck.json + speedup.md 均已落盘。结束后输出 `→ handoff: IMPLEMENT_DONE`。
+
+  # ---- Stage 3: 迭代优化 (3 轮) ----
+  - stage: optimize
+    agent: ops-optimize
+    depends_on: [implement]
+
+    # 进入前必须确认 implement 阶段产物存在
+    precondition:
+      - file: bottleneck.md        # Profiling 数据必须可读
+        source: implement
+      - file: bottleneck.json      # 结构化瓶颈结论必须可读（收敛原因要写回这里）
+        source: implement
+      - file: speedup.md      # 性能基线必须可读
+        source: implement
+
+    input:
+      - source: user
+        as: requirement
+      - source: implement
+        file: bottleneck.md
+        as: profiling_data
+      - source: implement
+        file: speedup.md
+        as: perf_data
+
+    output:
+      - delivery.md
+      - opt_history.md
+      - bottleneck.json
+
+    prompt: |
+      你是昇腾算子优化专家。基于 Profiling 数据进行最多 {iteration_caps.optimize} 轮迭代优化。
+
+      **状态检查**: 每轮开始前读取 state_transitions.jsonl 确认:
+      - 当前迭代轮数 < 上限 ({iteration_caps.optimize} 轮)
+      - bottleneck.md 存在且可读
+
+      需求: {requirement}
+      Profiling: {profiling_data}
+      性能基线: {perf_data}
+      开发语言: {dev_lang}            # triton | ascendc | tilelang
+      目标架构: {target_arch}         # arch22 (A2/A3) 或 arch35 (Ascend 950)
+
+      ## 优化流程
+
+      共 3 轮迭代，每轮结果**追加**写入 outputs/{op}/opt_history.md, 用 `## R{N}` 分隔。
+
+      每轮执行:
+      1. 分析当前瓶颈（Pipeline 利用率 / HBM 带宽 / 计算占比）
+      2. 根据 dev_lang 选择优化手法:
+          ── dev_lang = triton ──
+          - Memory Bound → 增大 BLOCK_SIZE, block_ptr 连续访存, compile_hint
+          - Compute Bound → autotune/max_autotune, fp32→fp16 降精度, int→fp32 向量化
+          - Launch Bound → 固定核心数 grid, 消除小 tile
+          - UB 溢出 → BLOCK_SIZE_SUB, buffer 复用
+          ── dev_lang = ascendc ── (ascendc-op-dev + ascendc-perf-optimize)
+          - UB 溢出 → 减小 TILE / 二次切分 / 关 double buffer
+          - 多核负载不均 → 重新切分 block_dim / 尾块均衡
+          - 流水断裂 → CopyIn/Compute/CopyOut 重排, double buffer 开启
+          - CV 协同差 (950) → CATLASS tile 调优 (catlass-op-perf-tune) / Blaze
+          - 搬运瓶颈 (MTE2) → 连续访存 + 对齐 + buffer 复用
+          ── dev_lang = tilelang ── (tilelang-op-dev)
+          - 编译失败/UB 溢出 → 减小 BM/BN/BK 片上 tile / 关 double buffer
+          - GPU 直迁性能差 → 展平一维 grid
+          - pipeline 未重叠 → num_stages 搜索 (2-4)
+          - 搬运占比高 → T.copy 连续访存 + 尾轴对齐
+          - 计算占比高 → autotune 搜索 BM/BN/BK、num_stages
+      3. 修改 kernel, SSH 远端重跑 pytest + torch_npu.profiler Level1
+      4. 对比优化前后: latency, speedup, HBM BW, pipeline 利用率
+      5. 追加写入 opt_history.md `## R{N}` 节（优化项 + 前后对比表 + profiling 数据）
+
+      ## 收敛条件
+
+      每轮优化后检查，满足任一即停止，并把命中的原因写入 bottleneck.json 的
+      convergence.reason（枚举必须与下表右侧一致，评测按此机读判定收敛是否诚实）:
+
+      | 停止条件 | convergence.reason |
+      |---------|--------------------|
+      | bottleneck.md 优化建议表为空或仅有 P3 (无可执行优化) | NO_SUGGESTIONS |
+      | HBM 利用率 >= 95% (硬件极限) | HARDWARE_LIMIT |
+      | speedup >= 设计目标 | TARGET_MET |
+      | 本轮 vs 上轮 speedup 提升 < 5% (连续 2 轮无效) | NO_IMPROVEMENT |
+      | 已达 iteration_caps.optimize = 3 轮上限 | CAP |
+
+      convergence.judgement 用一句话说明判断依据（引用具体数字：HBM BW、speedup、
+      或"建议表已空"），不要写泛泛而谈的结论。
+
+      ## 产出
+
+      - outputs/{op}/opt_history.md（R1→Rn 全部追加写入同一文件）
+      - outputs/{op}/bottleneck.json（收敛时更新 convergence.reason + convergence.judgement；
+        若某轮实测发现 classification 判断有误，一并改正）
+      - outputs/{op}/delivery.md（最终交付总结，收敛时写入）
+
+      全部产出写入 outputs/{op}/ 目录。
+
+      **结束时输出**: `→ handoff: OPTIMIZE_DONE` (如提前收敛则附加原因: `OPTIMIZE_DONE: HARDWARE_LIMIT` / `TARGET_MET` / `NO_IMPROVEMENT`)
+
+# ---------------------------------------------------------------------------
+# 状态转移规则（参考: exit transitions 从上到下匹配, 第一个命中即执行）
+# ---------------------------------------------------------------------------
+state_machine:
+  log_file: "outputs/{op}/state_transitions.jsonl"   # 追加式日志, 永不重写
+  handoff_pattern: "→ handoff: (\\S+)"                 # 从 agent 输出中提取 token
+
+  # 收敛判断函数（Python 引擎调用）
+  convergence_checks:
+    - name: hardware_limit
+      condition: "hbm_utilization >= 0.95"
+      handoff: "OPTIMIZE_DONE: HARDWARE_LIMIT"
+    - name: target_met
+      condition: "speedup >= target_speedup"
+      handoff: "OPTIMIZE_DONE: TARGET_MET"
+    - name: no_improvement
+      condition: "last_2_rounds_improvement < 0.05"
+      handoff: "OPTIMIZE_DONE: NO_IMPROVEMENT"
+    - name: cap_reached
+      condition: "optimize_round >= 3"
+      handoff: "OPTIMIZE_DONE: CAP"
+
+# ---------------------------------------------------------------------------
+# 变量 — prompt 中 {key} 和 {nested.key} 的值
+# ---------------------------------------------------------------------------
+variables:
+  op: ""                                       # 由用例填充（如 relu, gelu）
+  requirement: ""                              # 由用例填充（用户需求原文）
+  dev_lang: "triton"                           # triton | ascendc | tilelang —— 选择开发语言/路径
+  target_arch: "arch22"                        # arch22 (Atlas A2/A3) | arch35 (Ascend 950 / DAV_3510)
+  npu:                                         # 由使用者提供
+    host: "XXX"
+    container: "XX"
+    chip: "XX"
+
+# ---------------------------------------------------------------------------
+# 执行配置
+# ---------------------------------------------------------------------------
+execution:
+  backend: "auto"                              # auto | subprocess
+  concurrency: 2                               # 并行上限
+  timeout:
+    easy: 1200
+    medium: 2700
+    hard: 5400
+
+  testcases:
+    source: "benchmark/agents/ops/testcases"
+    manifest: "manifest.yaml"
+
+  output:
+    base_dir: "outputs"
+    checkpoint: true

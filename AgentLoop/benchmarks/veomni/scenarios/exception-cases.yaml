@@ -1,0 +1,59 @@
+# 异常场景集 — 验证 Agent 能正确停止并输出阻塞原因（非成功路径）
+# 每个用例给出：触发条件、期望行为、期望产物/状态
+scenarios:
+  - id: env-version-incompatible
+    name: 版本不兼容
+    trigger: TorchNPU/CANN 与 VeOmni 要求不匹配
+    expect:
+      stage: environment
+      status: BLOCKED
+      output: environment_report.json 含 FAIL 项与修改建议
+      must_not: 继续执行后续阶段
+
+  - id: model-not-registered
+    name: 模型未注册
+    trigger: 加载时 registry 中无该模型条目
+    expect:
+      stage: adaptation
+      status: FAILED
+      output: 补全注册项后重测
+
+  - id: generated-file-modified
+    name: generated 文件被修改
+    trigger: patch_manifest 中的 sha256 与 Patchgen 重跑结果不一致
+    expect:
+      stage: adaptation
+      status: FAILED
+      output: 门禁 generated_files_untouched 拦截，报告违规文件
+
+  - id: missing-npu-operator
+    name: 缺少 NPU 算子
+    trigger: 模型依赖的自定义算子无 NPU 实现
+    expect:
+      stage: model-analysis
+      status: BLOCKED
+      output: operator_gaps 非空，handoff 至 Ops Agent
+
+  - id: invalid-parallel-topology
+    name: 并行拓扑非法
+    trigger: device_mesh 各维度乘积 != world size 或 experts 不能被 EP 整除
+    expect:
+      stage: parallel-recipe
+      status: FAILED
+      output: parallel_recipe 校验失败原因
+
+  - id: precision-failure
+    name: 精度失败
+    trigger: logits 余弦低于模型定义阈值或出现非预期 NaN
+    expect:
+      stage: precision-alignment
+      status: FAILED
+      output: first_divergence 定位到首个差异节点
+
+  - id: unstable-performance
+    name: 性能结果不稳定
+    trigger: 优化收益低于测试噪声带
+    expect:
+      stage: performance-tuning
+      status: FAILED
+      output: exceeds_noise=false，优化视为无效

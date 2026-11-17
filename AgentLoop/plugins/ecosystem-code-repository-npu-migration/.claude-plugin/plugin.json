@@ -1,0 +1,19 @@
+{
+  "name": "ecosystem-code-repository-npu-migration",
+  "displayName": "NPU Migrate",
+  "version": "0.16.0",
+  "description": "NPU 迁移插件 — 提示词为先的仓库级 GPU/PyTorch → 昇腾 NPU 迁移：goal 入口自适应编排 feature-model / local-assets / env-setup / repair / vllm-ascend-env / report-pr / docs-support 七个专项 skill，真实命令证据驱动，无状态机",
+  "skills": [
+    "./skills/goal",
+    "./skills/repair",
+    "./skills/feature-model",
+    "./skills/env-setup",
+    "./skills/vllm-ascend-env",
+    "./skills/local-assets",
+    "./skills/report-pr",
+    "./skills/docs-support"
+  ],
+  "author": {
+    "name": "addsubmuldiv"
+  }
+}

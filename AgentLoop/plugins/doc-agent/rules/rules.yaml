@@ -1,0 +1,341 @@
+# doc-agent 规则目录（唯一事实源）
+# 治理流程见 rules/README.md；issue 必须绑定本文件的 rule_id。
+# 跨维度去重：同一对象命中多个维度时，只扣 primary: true 规则所在维度的分；
+# 非主责维度只记录不扣分。
+
+scoring:
+  weights:
+    correctness: 40
+    completeness: 25
+    clarity: 20
+    accessibility: 15
+  floors:
+    correctness: 90
+    completeness: 80
+    clarity: 60
+    accessibility: 60
+  pass_total: 80
+  max_rounds: 3
+
+rules:
+  # ---- correctness（权重 40%，最低 90）----
+  - id: R-COR-001
+    dimension: correctness
+    title: 链接可达性
+    kind: deterministic
+    linter: link
+    severity: critical
+    weight: 5
+    primary: true
+    judge: HTTP 2xx/3xx 视为有效；4xx/5xx 失效；网络错误标记检查失败
+    evidence: 请求状态码与目标 URL
+  - id: R-COR-002
+    dimension: correctness
+    title: 代码示例可运行（静态）
+    kind: deterministic
+    linter: code
+    severity: major
+    weight: 15
+    primary: true
+    judge: 语法正确且 import 引用在目标仓存在；实跑验证归 R-COR-009
+    evidence: 语法/符号检查结果
+  - id: R-COR-009
+    dimension: correctness
+    title: 代码示例验证闭环（分级实测）
+    kind: semantic
+    severity: major
+    weight: 10
+    primary: true
+    judge: 文档中每个代码块按可执行性分级给出验证结论与证据——T1 可直接执行（shell 命令/仓内独立脚本）、T2 可构造最小脚本（python 片段，补齐导入与占位）、T3 仅能静态核对（配置/参数片段、依赖大规模资源的多机多卡命令）；有 NPU 环境时 T1/T2 必须实测（pass/fail 附命令与输出证据），无环境标 manual（待人工验证，写明缺失环境，不得声称已验证）；T3 以"与目标仓代码定义一致 + 语法正确 + 占位有说明"为结论；任一块缺验证结论或证据缺失即记问题
+    evidence: 分级结论、运行命令与输出或静态核对依据
+  - id: R-COR-003
+    dimension: correctness
+    title: 参数与实现一致
+    kind: semantic
+    severity: major
+    weight: 10
+    primary: true
+    judge: 参数名/类型/默认值/取值范围与代码实现一致
+    evidence: 代码位置或实测输出
+  - id: R-COR-004
+    dimension: correctness
+    title: 版本与配套一致
+    kind: deterministic
+    linter: version
+    severity: critical
+    weight: 10
+    primary: true
+    judge: 版本号与发布说明/配套表一致；跨仓分支与 doc-version 规则一致
+    evidence: 发布说明或配套表原文
+  - id: R-COR-005
+    dimension: correctness
+    title: 代码注释准确
+    kind: semantic
+    severity: major
+    weight: 8
+    primary: true
+    judge: 代码块内注释与代码行为/参数语义一致，无过时误导
+    evidence: 代码行为对照
+  - id: R-COR-006
+    dimension: correctness
+    title: 插图真实无伪造（证据链审查）
+    kind: semantic
+    severity: critical
+    weight: 8
+    primary: true
+    judge: 截图须与运行记录成对提交（采集环境/命令/版本），交付记录完整，图片内容与文档描述的版本一致；未交付占位不得声称图片存在（该闭环由 R-COM-008 确定性检查）。真伪最终由人工交付责任兜底，审查不声称机器识别 AI 生成/伪造
+    evidence: 运行记录、采集环境/版本标注、figure_requests 交付状态
+  - id: R-COR-007
+    dimension: correctness
+    title: 语义与实现一致
+    kind: semantic
+    severity: critical
+    weight: 20
+    primary: true
+    judge: 功能行为、特性能力、限制条件、适用场景与代码实现一致
+    evidence: 代码位置或 PR/Issue
+  - id: R-COR-008
+    dimension: correctness
+    title: 数据口径准确
+    kind: semantic
+    severity: major
+    weight: 20
+    primary: true
+    judge: 指标口径准确，实测值标注硬件、版本、复现条件
+    evidence: 实测记录或来源链接
+
+  # ---- completeness（权重 25%，最低 80）----
+  - id: R-COM-001
+    dimension: completeness
+    title: 仓库必备资料齐全
+    kind: deterministic
+    linter: manifest
+    severity: critical
+    weight: 10
+    primary: true
+    judge: 对照 templates/repo_manifest.yaml：必备资料与条件资料（按仓库能力 models/toolchain）在仓内可定位（files glob 或 H1/H2 标题匹配）；可选资料不强制
+    evidence: 缺失资料清单与检测方式
+  - id: R-COM-002
+    dimension: completeness
+    title: 前置条件完整
+    kind: semantic
+    severity: major
+    weight: 10
+    primary: true
+    judge: 硬件/软件/知识前置齐全
+    evidence: 缺失项清单
+  - id: R-COM-003
+    dimension: completeness
+    title: 成功标志明确
+    kind: semantic
+    severity: minor
+    weight: 5
+    primary: true
+    judge: 每类操作有可验证结果（日志关键词、产物文件、命令输出）
+    evidence: 操作与标志对照
+  - id: R-COM-004
+    dimension: completeness
+    title: 错误处理覆盖
+    kind: semantic
+    severity: major
+    weight: 8
+    primary: true
+    judge: 常见失败有定位入口
+    evidence: 失败场景清单
+  - id: R-COM-005
+    dimension: completeness
+    title: 交叉引用存在
+    kind: deterministic
+    linter: xref
+    severity: major
+    weight: 5
+    primary: true
+    judge: 文档内相对链接/章节引用目标存在且正确
+    evidence: 引用目标解析结果
+  - id: R-COM-006
+    dimension: completeness
+    title: 无占位符
+    kind: deterministic
+    linter: placeholder
+    severity: critical
+    weight: 5
+    primary: true
+    judge: 无 TODO/FIXME/未填充 <...>；插图占位须登记于 figure_requests.json
+    evidence: 占位符位置
+  - id: R-COM-007
+    dimension: completeness
+    title: 版本信息标注
+    kind: deterministic
+    linter: version
+    severity: minor
+    weight: 5
+    primary: true
+    judge: 文档标注适用版本范围
+    evidence: 版本标注位置
+  - id: R-COM-008
+    dimension: completeness
+    title: 插图诉求齐备
+    kind: deterministic
+    linter: image
+    severity: major
+    weight: 5
+    primary: true
+    judge: 正文插图占位与 figure_requests.json 一一对应；替代文本草案存在
+    evidence: 占位与清单对照
+
+  # ---- clarity（权重 20%，最低 75）----
+  - id: R-CLA-001
+    dimension: clarity
+    title: 逻辑连贯
+    kind: semantic
+    severity: major
+    weight: 5
+    primary: true
+    judge: 章节顺序与因果链顺畅
+    evidence: 困惑点描述
+  - id: R-CLA-002
+    dimension: clarity
+    title: 术语定义
+    kind: semantic
+    severity: minor
+    weight: 3
+    primary: true
+    judge: 首次出现的专业术语有定义或入口
+    evidence: 术语位置
+  - id: R-CLA-003
+    dimension: clarity
+    title: 段落长度
+    kind: deterministic
+    linter: style
+    severity: minor
+    weight: 1
+    primary: true
+    judge: 单段以不超过 5 句为宜；长段落允许有充分理由（复杂概念展开、代码/表格上下文等），确定性检测只作最低档提示，不阻塞
+    evidence: 段落行号
+  - id: R-CLA-004
+    dimension: clarity
+    title: 示例质量
+    kind: semantic
+    severity: major
+    weight: 8
+    primary: true
+    judge: 示例贴切、可理解
+    evidence: 示例与目标对照
+  - id: R-CLA-005
+    dimension: clarity
+    title: 标题密度
+    kind: deterministic
+    linter: style
+    severity: minor
+    weight: 3
+    primary: true
+    judge: 每 200~400 字至少一个标题
+    evidence: 无标题区间
+  - id: R-CLA-006
+    dimension: clarity
+    title: 主动语态
+    kind: semantic
+    severity: minor
+    weight: 1
+    primary: true
+    judge: 操作表述以用户可执行的动作给出
+    evidence: 语句位置
+  - id: R-CLA-007
+    dimension: clarity
+    title: 受众匹配
+    kind: semantic
+    severity: major
+    weight: 5
+    primary: true
+    judge: 难度与目标读者匹配
+    evidence: 读者画像对照
+  - id: R-CLA-008
+    dimension: clarity
+    title: 错别字与简繁
+    kind: deterministic
+    linter: term
+    severity: minor
+    weight: 2
+    primary: true
+    judge: 无错别字/简繁混用；术语大小写规范（NPU/CANN/MindSpeed）
+    evidence: 命中词与位置
+
+  # ---- accessibility（权重 15%，最低 70）----
+  - id: R-ACC-001
+    dimension: accessibility
+    title: README 导航
+    kind: deterministic
+    linter: nav
+    severity: critical
+    weight: 10
+    primary: true
+    judge: 目标文档从 README 可达
+    evidence: 路径 BFS 结果
+  - id: R-ACC-002
+    dimension: accessibility
+    title: 关键资料入口
+    kind: semantic
+    severity: major
+    weight: 5
+    primary: true
+    judge: 安装/快速开始/FAQ 等有一级入口
+    evidence: 入口清单对照
+  - id: R-ACC-003
+    dimension: accessibility
+    title: 跳转步数
+    kind: deterministic
+    linter: nav
+    severity: major
+    weight: 5
+    primary: true
+    judge: 目标内容 3~5 步内可达（≤2 步直达不算问题）
+    evidence: 步数
+  - id: R-ACC-004
+    dimension: accessibility
+    title: 搜索友好
+    kind: semantic
+    severity: minor
+    weight: 3
+    primary: true
+    judge: 标题与关键词便于检索
+    evidence: 标题对照
+  - id: R-ACC-005
+    dimension: accessibility
+    title: 跨仓导航可达
+    kind: deterministic
+    linter: nav
+    severity: major
+    weight: 8
+    primary: true
+    judge: 跨仓引用能从入口沿导航到达；链接有效性由 R-COR-001 主责，不重复扣分
+    evidence: 导航路径
+  - id: R-ACC-006
+    dimension: accessibility
+    title: 导航一致性
+    kind: deterministic
+    linter: nav
+    severity: major
+    weight: 5
+    primary: true
+    judge: README 入口章节与实际文件结构一致
+    evidence: 差异清单
+  - id: R-ACC-007
+    dimension: accessibility
+    title: 图片路径有效
+    kind: deterministic
+    linter: image
+    severity: major
+    weight: 3
+    primary: true
+    judge: 图片相对路径在目标仓存在；替代文本主责在 R-COM-008
+    evidence: 路径解析结果
+  - id: R-ACC-008
+    dimension: accessibility
+    title: 资料存放位置合规（自研仓）
+    kind: deterministic
+    linter: placement
+    severity: major
+    weight: 5
+    primary: true
+    judge: 昇腾自研开源仓的中文资料必须位于仓库根目录下 docs/zh/ 内；docs/en/** 出域（翻译团队负责）；examples/tests/docker 零星文件合理（minor 提示）；根目录约定文件（README*/CONTRIBUTING/LICENSE 等）豁免；三方仓不适用。scope 清单见 repo_manifest.yaml placement
+    evidence: 违规文件路径列表

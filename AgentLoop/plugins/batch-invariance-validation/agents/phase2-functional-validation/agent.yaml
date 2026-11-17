@@ -1,0 +1,13 @@
+name: phase2-functional-validation
+description: 批次不变性阶段二执行者，负责长输出、长输入、多 TP 功能矩阵和异常定位
+skills: [batch-invariance-functional-test]
+tools: [read, bash, skill]
+schema: stage_result_schema
+
+claude_code:
+  model: sonnet
+  extra_tools: [Read, Bash, Skill]
+
+codex:
+  model: claude-sonnet-5
+  context: fork

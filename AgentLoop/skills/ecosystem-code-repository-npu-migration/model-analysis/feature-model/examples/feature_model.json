@@ -1,0 +1,141 @@
+{
+  "schema_version": "npu-feature-model-v2",
+  "repository_summary": {
+    "primary_purpose": "通过监督学习和强化学习工作流训练语言模型。",
+    "in_scope_roots": ["tests", "examples"],
+    "inspected_sources": ["README.md", "examples", "tests", "src/trainer"],
+    "entry_organization": "仓库原生 Python 示例与聚焦的组件测试。"
+  },
+  "capabilities": [
+    {
+      "capability_id": "device_selection",
+      "name": "NPU 设备选择",
+      "description": "选择并初始化请求的加速器设备。",
+      "source_refs": ["tests/test_npu_device.py", "src/trainer/device.py"]
+    }
+  ],
+  "features": [
+    {
+      "feature_id": "sft_lora",
+      "name": "LoRA 监督微调",
+      "category": "training",
+      "description": "运行仓库原生 SFT，同时更新 LoRA 参数。",
+      "dimensions": {
+        "task": "sft",
+        "update_strategy": "lora",
+        "runtime": "repository-native",
+        "topology": "single-device",
+        "model_kind": "dense-causal-lm",
+        "risk_semantics": ["optimizer-update"]
+      },
+      "requires_capabilities": ["device_selection"],
+      "source_refs": ["examples/sft_lora_tiny.py", "examples/sft_lora_large.py"]
+    },
+    {
+      "feature_id": "sft_full",
+      "name": "全参数监督微调",
+      "category": "training",
+      "description": "运行仓库原生 SFT，同时更新全部模型参数。",
+      "dimensions": {
+        "task": "sft",
+        "update_strategy": "full",
+        "runtime": "repository-native",
+        "topology": "single-device",
+        "model_kind": "dense-causal-lm",
+        "risk_semantics": ["optimizer-update"]
+      },
+      "requires_capabilities": ["device_selection"],
+      "source_refs": ["examples/sft_full.py"]
+    },
+    {
+      "feature_id": "grpo_vllm",
+      "name": "带 vLLM rollout 的 GRPO",
+      "category": "reinforcement-learning",
+      "description": "使用 vLLM 生成 rollout 样本，并通过 GRPO 更新策略。",
+      "dimensions": {
+        "task": "grpo",
+        "update_strategy": "full",
+        "runtime": "repository-native+vllm",
+        "topology": "single-device",
+        "model_kind": "dense-causal-lm",
+        "risk_semantics": ["rollout-update", "vllm-integration"]
+      },
+      "requires_capabilities": ["device_selection"],
+      "source_refs": ["examples/grpo_vllm.py"]
+    }
+  ],
+  "entries": [
+    {
+      "entry_id": "tests/test_npu_device.py",
+      "path": "tests/test_npu_device.py",
+      "entry_type": "unit_test",
+      "command": "python -m pytest tests/test_npu_device.py",
+      "feature_ids": [],
+      "capability_ids": ["device_selection"],
+      "classification_reason": "该测试在不运行训练工作流的情况下隔离设备选择。"
+    },
+    {
+      "entry_id": "examples/sft_lora_tiny.py",
+      "path": "examples/sft_lora_tiny.py",
+      "entry_type": "e2e_example",
+      "command": "python examples/sft_lora_tiny.py",
+      "feature_ids": ["sft_lora"],
+      "capability_ids": ["device_selection"],
+      "equivalence_group": "sft-lora-single",
+      "classification_reason": "这是最小的仓库原生 LoRA SFT 入口。"
+    },
+    {
+      "entry_id": "examples/sft_lora_large.py",
+      "path": "examples/sft_lora_large.py",
+      "entry_type": "e2e_example",
+      "command": "python examples/sft_lora_large.py",
+      "feature_ids": ["sft_lora"],
+      "capability_ids": ["device_selection"],
+      "equivalence_group": "sft-lora-single",
+      "classification_reason": "它与 tiny 变体使用相同的 trainer 和 NPU 敏感维度，但使用更大的资产。"
+    },
+    {
+      "entry_id": "examples/sft_full.py",
+      "path": "examples/sft_full.py",
+      "entry_type": "e2e_example",
+      "command": "python examples/sft_full.py",
+      "feature_ids": ["sft_full"],
+      "capability_ids": ["device_selection"],
+      "equivalence_group": "sft-full-single",
+      "classification_reason": "全参数更新使用不同于 LoRA 的 optimizer 和参数路径。"
+    },
+    {
+      "entry_id": "examples/grpo_vllm.py",
+      "path": "examples/grpo_vllm.py",
+      "entry_type": "e2e_example",
+      "command": "python examples/grpo_vllm.py",
+      "feature_ids": ["grpo_vllm"],
+      "capability_ids": ["device_selection"],
+      "equivalence_group": "grpo-vllm-single",
+      "classification_reason": "rollout 和 vLLM 集成使其成为独立的 runtime 和数据流路径。"
+    }
+  ],
+  "equivalence_groups": [
+    {
+      "group_id": "sft-lora-single",
+      "name": "单设备仓库原生 LoRA SFT",
+      "entry_ids": ["examples/sft_lora_tiny.py", "examples/sft_lora_large.py"],
+      "equivalence_basis": "两个 entry 共享 task、LoRA 更新路径、trainer、topology、precision 和非 packed 数据流；只有资产大小不同。",
+      "differentiators_checked": ["update_strategy", "runtime", "topology", "model_kind", "packing", "precision"]
+    },
+    {
+      "group_id": "sft-full-single",
+      "name": "单设备仓库原生全参数 SFT",
+      "entry_ids": ["examples/sft_full.py"],
+      "equivalence_basis": "全参数 optimizer 路径不同于 LoRA，且范围内只有一个 entry。",
+      "differentiators_checked": ["update_strategy", "runtime", "topology", "model_kind"]
+    },
+    {
+      "group_id": "grpo-vllm-single",
+      "name": "带 vLLM rollout 的单设备 GRPO",
+      "entry_ids": ["examples/grpo_vllm.py"],
+      "equivalence_basis": "rollout/update 循环和 vLLM 集成组成独立的执行路径。",
+      "differentiators_checked": ["task", "runtime", "data_flow", "topology"]
+    }
+  ]
+}

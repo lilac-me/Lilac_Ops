@@ -1,0 +1,182 @@
+# Inference Model Optimize Pipeline
+# ===================================
+# YAML state machine for the 4-phase vLLM-on-NPU optimization pipeline.
+# This is the SINGLE SOURCE OF TRUTH for all state transitions.
+#
+# Platforms: Claude Code / Codex
+# Plugin:    inference-model-optimize
+# Agents:    orchestrator → architect → developer → tester → reviewer
+#
+# Iteration: tester ↔ reviewer loop, max 3 rounds.
+# Handoff:   Agents must emit one exact canonical handoff token.
+
+pipeline:
+  name: inference-model-optimize
+  version: "2.0.0"
+  description: >-
+    推理模型优化五阶段流水线 — 跨平台（Claude Code / Codex）。
+    architect 方案设计 → developer 环境部署 → tester 自动寻优 → reviewer 诊断 → optimizer 方案实施。
+    reviewer ↔ optimizer 迭代闭环，最多 3 轮。
+  initial_state: architect
+  # 拓扑搜索为强制第一阶段：每个 TP/DP/EP 候选都需一次 developer 重启，
+  # reviewer ↔ optimizer 闭环每个建议都需一次 optimizer 执行，
+  # 因此 total_spawn_cap 需覆盖 architect + developer 重启 + tester + reviewer/optimizer 循环
+  total_spawn_cap: 36
+  max_iterations: 3
+
+states:
+  # ------------------------------------------------------------------
+  # Phase 1: Architect — 方案设计
+  # ------------------------------------------------------------------
+  - id: architect
+    agent: architect
+    description: 分析模型结构、计算显存预算、推荐 TP/DP 并行策略
+    iter_cap: 3
+    iter_counter: architect
+    exit_transitions:
+      - condition:
+          handoff_match: "handoff: ARCHITECT_READY"
+        goto: developer
+        rationale: "方案设计完成，交付结构化部署方案，进入环境部署阶段"
+      - condition:
+          handoff_match: "handoff: ARCHITECT_FAILED"
+        goto: abort
+        rationale: "方案设计失败"
+      - condition:
+          always: true
+        goto: abort
+        rationale: "方案设计未产出可用部署方案，终止流水线"
+
+  # ------------------------------------------------------------------
+  # Phase 2: Developer — 环境部署
+  # ------------------------------------------------------------------
+  - id: developer
+    agent: developer
+    description: 按 architect 方案搭建 NPU 环境、启动 vLLM Ascend 推理服务
+    # 强制 TP/DP/EP 拓扑搜索需要多次重启（tester→developer 循环），
+    # iter_cap 需与 tester(8) 对齐，保证每个拓扑候选都有重启预算
+    iter_cap: 8
+    iter_counter: developer
+    exit_transitions:
+      - condition:
+          handoff_match: "handoff: SERVICE_READY"
+        goto: tester
+        rationale: "推理服务就绪（/health + /v1/models 验证通过），进入性能优化阶段"
+      - condition:
+          handoff_match: "handoff: SERVICE_FAILED"
+        goto: abort
+        rationale: "环境部署或服务启动失败"
+      - condition:
+          always: true
+        goto: abort
+        rationale: "环境部署或服务启动失败，终止流水线"
+
+  # ------------------------------------------------------------------
+  # Phase 3: Tester — 自动寻优
+  # ------------------------------------------------------------------
+  - id: tester
+    agent: tester
+    description: 基线测试 → 决策驱动优化 → 自动参数寻优 → 验证闭环
+    iter_cap: 8
+    iter_counter: tester
+    exit_transitions:
+      - condition:
+          handoff_match: "handoff: NEED_RESTART"
+        goto: developer
+        rationale: "tester 返回新的候选参数，需要重启服务"
+      - condition:
+          all_of:
+            - handoff_match: "handoff: OPTIMIZATION_READY"
+            - iter_below_cap: reviewer
+        goto: reviewer
+        rationale: "寻优完成且 reviewer 未达迭代上限，进入 profiling 诊断阶段"
+      - condition:
+          handoff_match: "handoff: OPTIMIZATION_READY"
+        goto: finalize
+        rationale: "寻优完成但 reviewer 已达迭代上限，跳过诊断直接进入最终报告"
+      - condition:
+          always: true
+        goto: abort
+        rationale: "性能优化失败或无法收敛，终止流水线"
+
+  # ------------------------------------------------------------------
+  # Phase 4: Reviewer — Profiling 诊断
+  # ------------------------------------------------------------------
+  - id: reviewer
+    agent: reviewer
+    description: 对 tester 最优配置采集 profiling，瓶颈三分类，输出优化建议
+    iter_cap: 5
+    iter_counter: reviewer
+    exit_transitions:
+      - condition:
+          all_of:
+            - handoff_match: "handoff: REVIEWER_CONTINUE"
+            - iter_below_cap: optimizer
+        goto: optimizer
+        rationale: "存在可执行的优化建议且 optimizer 未达迭代上限，交给 optimizer 思考方案、生成代码并验证"
+      - condition:
+          handoff_match: "handoff: REVIEWER_DONE"
+        goto: finalize
+        rationale: "所有优化建议已执行或无需继续，进入最终报告"
+      - condition:
+          all_of:
+            - handoff_match: "handoff: REVIEWER_CONTINUE"
+        goto: finalize
+        rationale: "存在建议但 optimizer 已达迭代上限，进入最终报告"
+      - condition:
+          always: true
+        goto: abort
+        rationale: "Profiling 诊断失败，终止流水线"
+
+  # ------------------------------------------------------------------
+  # Phase 4.5: Optimizer — 方案实施（思考方案 → 生成代码 → 验证有效性）
+  # ------------------------------------------------------------------
+  - id: optimizer
+    agent: optimizer
+    description: 对 reviewer 的优化建议思考方案、生成方案代码、测试验证优化是否有效
+    iter_cap: 6
+    iter_counter: optimizer
+    exit_transitions:
+      - condition:
+          all_of:
+            - handoff_match: "handoff: OPTIMIZER_DONE"
+            - iter_below_cap: reviewer
+        goto: reviewer
+        rationale: "至少一条建议完成实现+验证闭环，回 reviewer 重新 profiling 确认瓶颈改善"
+      - condition:
+          handoff_match: "handoff: OPTIMIZER_DONE"
+        goto: finalize
+        rationale: "方案完成但 reviewer 已达迭代上限，直接进入最终报告"
+      - condition:
+          handoff_match: "handoff: OPTIMIZER_FAILED"
+        goto: reviewer
+        rationale: "建议均无法实现或分析失败，回 reviewer 重新评估（提出新方向或 DONE）"
+      - condition:
+          always: true
+        goto: abort
+        rationale: "方案实施失败，终止流水线"
+
+  # ------------------------------------------------------------------
+  # Finalize — 最终报告
+  # ------------------------------------------------------------------
+  - id: finalize
+    agent: orchestrator
+    description: 汇总所有阶段产出，生成最终优化报告
+    iter_cap: 1
+    iter_counter: finalize
+    exit_transitions:
+      - condition:
+          always: true
+        goto: done
+        rationale: "报告生成完毕，流水线正常结束"
+
+  # ------------------------------------------------------------------
+  # Terminal states
+  # ------------------------------------------------------------------
+  - id: done
+    agent: null
+    description: 流水线正常完成
+
+  - id: abort
+    agent: null
+    description: 流水线异常终止

@@ -1,0 +1,104 @@
+# 新手话术黄金测试集（intent-examples）
+# ======================================
+# 用途：回归验证图谱路由的确定性消歧（R1）+ 任务维度（R2）是否稳定命中期望仓/任务。
+# 规则（lint 强校验）：
+#   - text: 用户原话（新手口语，中英文均可）
+#   - expected_repos: 期望消歧到的 canonical repo id 之一（须存在于 repos.yaml）
+#   - expected_task: 期望命中的 TaskKind id；null 表示话术本身任务多义（应触发 R4 反问）
+#   - expected_plugins: 期望进入的插件 id（可空；存在性校验）
+#   - note: 来源/依据（为什么该话术应路由到此处）
+# 维护：新增话术须人工确认（禁止 AI 凭空生成后直接入库），最好来自真实会话回写。
+
+intents:
+  - text: "我想优化 mindspeed-llm 的模型"
+    expected_repos: [mindspeed-llm]
+    expected_task: null
+    expected_plugins: [mindspeed-agent]
+    note: "设计文档验收金句：'优化' 多义（perf/migrate/align），须反问；仓库必须消歧到 LLM 训练套件而非 MindSpeed 框架或推理。"
+
+  - text: "把 Qwen3-30B 迁到 mindspeed-llm 的 mcore"
+    expected_repos: [mindspeed-llm]
+    expected_task: migrate
+    expected_plugins: [mindspeed-agent]
+    note: "从 mindspeed-llm-mcore-open-model-migration 的 description 提炼。"
+
+  - text: "在 mindspeed-llm 上做 FSDP2 融合算子优化"
+    expected_repos: [mindspeed-llm]
+    expected_task: perf-optimize
+    expected_plugins: [mindspeed-agent]
+    note: "从 mindspeed-llm-fsdp2-fused-op-integration 的 description 提炼。"
+
+  - text: "我要验证 MindSpeed-LLM 的训练场景矩阵"
+    expected_repos: [mindspeed-llm]
+    expected_task: validate
+    expected_plugins: [mindspeed-agent]
+    note: "从 validate-mindspeed-training-scenarios 的 description 提炼。"
+
+  - text: "把 Qwen2.5 模型适配到 MindSpeed-Bridge"
+    expected_repos: [mindspeed-bridge]
+    expected_task: migrate
+    expected_plugins: [mindspeed-agent]
+    note: "从 bridge-model-adaptation 的 description 提炼。"
+
+  - text: "在远端服务器上拉起 MindSpeed-Bridge 训练验证"
+    expected_repos: [mindspeed-bridge]
+    expected_task: validate
+    expected_plugins: [mindspeed-agent]
+    note: "从 bridge-remote-train-run 的 description 提炼。"
+
+  - text: "帮我启动 vllm-ascend 推理服务"
+    expected_repos: [vllm-ascend]
+    expected_task: deploy
+    expected_plugins: [inference-model-optimize]
+    note: "从 vllm-ascend-serving 的 description 提炼；推理场景归 inference-model-optimize 能力。"
+
+  - text: "给 vllm-ascend 服务跑个 benchmark 压测一下"
+    expected_repos: [vllm-ascend]
+    expected_task: benchmark
+    expected_plugins: [inference-model-optimize]
+    note: "从 vllm-ascend-benchmark 的 description 提炼。"
+
+  - text: "优化 qwen3-4b 在 vllm-ascend 上的推理服务吞吐"
+    expected_repos: [vllm-ascend]
+    expected_task: perf-optimize
+    expected_plugins: [inference-model-optimize]
+    note: "端到端吞吐优化（非单点 benchmark/诊断）→ repo 消歧到 vllm-ascend，任务 perf-optimize，
+          命中 state-machine 插件 inference-model-optimize，路由终点为其 workflow 入口
+          (orchestrator/optimize-pipeline.yaml)，而非单个 skill；'优化 qwen3-4b 推理性能'
+          是典型触发话术（R4 需与用户确认完整流水线 vs 单点动作）。"
+
+  - text: "分析 vllm-ascend 服务采到的 profiling 数据，看下有没有慢卡"
+    expected_repos: [vllm-ascend]
+    expected_task: diagnose
+    expected_plugins: [inference-model-optimize]
+    note: "从 ascend-msprof-analyze-cli 的 description 提炼（tags 含 vllm-ascend）。"
+
+  - text: "帮我生成一个 triton 算子并做性能优化"
+    expected_repos: [triton-ascend]
+    expected_task: ops-dev
+    expected_plugins: [ops]
+    note: "从 triton-op-dev / ops-design 的 description 提炼。"
+
+  - text: "ModelLink 上想加一个新模型训练"
+    expected_repos: [mindspeed-llm]
+    expected_task: migrate
+    expected_plugins: [mindspeed-agent]
+    note: "曾用名 ModelLink 必须消歧到 mindspeed-llm（M0 验收金句）。"
+
+  - text: "给 MindSpeed-LLM 仓库生成资料并做质量审查"
+    expected_repos: [mindspeed-llm]
+    expected_task: doc
+    expected_plugins: [doc-agent]
+    note: "doc-agent 面向任意仓；此处确认仓库维度的意图信息不丢失。"
+
+  - text: "扫描 MindSpeed-MM 当前待回复的 Issue，先不要发布"
+    expected_repos: [mindspeed-mm]
+    expected_task: issue-triage
+    expected_plugins: [mindspeed-scan-issue-agent]
+    note: "来自真实使用场景：目标仓明确，要求只读扫描和待回复分诊，应路由到 mindspeed-scan-issue-agent。"
+
+  - text: "把 profile 文件中计算耗时占比大于 xx% 且 mfu 低于 xx% 的 Triton 算子识别出来，进行调优"
+    expected_repos: [triton-ascend]
+    expected_task: ops-dev
+    expected_plugins: [ops]
+    note: "来自真实使用场景：按耗时占比 + MFU 阈值筛选 Triton 算子后进入 profile 驱动调优（PR59 S0-S6）。"

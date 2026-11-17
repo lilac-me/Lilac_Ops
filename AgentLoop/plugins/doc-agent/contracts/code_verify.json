@@ -1,0 +1,40 @@
+{
+  "title": "CodeVerify",
+  "description": "代码示例验证结论清单：blocks 必须与目标文档中的 fenced code blocks 一一对应，每个代码块按可执行性分级给出验证结论与证据；manual 块待人工验证",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["doc", "doc_sha256", "blocks"],
+  "properties": {
+    "doc": { "type": "string", "minLength": 1 },
+    "doc_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location", "tier", "status", "evidence"],
+        "properties": {
+          "location": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "line"],
+            "properties": {
+              "file": { "type": "string", "minLength": 1 },
+              "line": { "type": "integer", "minimum": 1 },
+              "anchor": { "type": "string", "minLength": 1 }
+            }
+          },
+          "tier": { "enum": ["T1", "T2", "T3"] },
+          "status": { "enum": ["pass", "fail", "manual"] },
+          "evidence": { "type": "string", "minLength": 1 },
+          "env": { "type": "string" }
+        }
+      }
+    }
+  }
+}

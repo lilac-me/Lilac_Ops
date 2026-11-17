@@ -1,0 +1,21 @@
+# Cross-platform agent config — shared by Claude Code and Codex
+name: ops-design-agent
+display_name: "Ops Design Agent"
+role: "设计详设"
+version: "1.0.0"
+domain: ops
+
+skills:
+  - ops-design
+  - ascendc-design
+  - tilelang-design
+
+# Platform-specific configs
+claude_code:
+  entry: "ops-design-agent"
+  plugin: "ops"
+
+codex:
+  entry: "ops-design-agent"
+  model: claude-sonnet-5
+  tools: [Read, Write, Bash, Glob, Grep]

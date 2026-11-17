@@ -1,0 +1,13 @@
+name: orchestrator
+description: 推理模型优化流水线编排器 — 唯一入口，收集需求、路由阶段、亲自执行状态机驱动的四阶段流水线
+skills: []
+tools: [agent, read, bash, skill]
+schema: null
+
+claude_code:
+  model: sonnet
+  extra_tools: [Agent, Read, Bash, Skill]
+
+codex:
+  model: claude-sonnet-5
+  context: fork

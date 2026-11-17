@@ -1,0 +1,4 @@
+interface:
+  display_name: "NPU 迁移文档"
+  short_description: "根据已验证的迁移证据编写面向仓库用户的 NPU 支持文档"
+  default_prompt: "使用 $ecosystem-code-repository-npu-migration:docs-support，根据已接受的当前命令、日志、diff 和限制更新面向仓库用户的 NPU 文档。"

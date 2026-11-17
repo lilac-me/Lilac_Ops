@@ -1,0 +1,49 @@
+name: ci-guard
+
+# GitCode Pipeline 触发配置（仓库托管于 gitcode.com）
+# 触发条件：push 到 master/new-main/add-ci 分支、创建合并请求（PR）、手动触发
+on:
+  push:
+    branches: [master, new-main, add-ci]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  guard:
+    runs-on: euleros-2.10.1
+    steps:
+      - uses: checkout-action@0.0.1
+
+      - name: Install Python dependencies
+        run: |
+          cd repo_workspace
+          python3 -m pip install pyyaml pytest || pip install pyyaml pytest
+
+      # L1/L2/L3 结构、引用、一致性看护（退出码 0=通过，1=阻塞）
+      - name: Run CI guard
+        run: |
+          cd repo_workspace
+          python3 ci/guard.py --repo . --json guard-report.json
+
+      # 引擎状态机 + 门禁单元测试
+      - name: Run engine tests
+        run: |
+          cd repo_workspace
+          PYTHONPATH=plugins/inference-model-optimize python3 -m pytest plugins/inference-model-optimize/engine/tests -q
+
+      # guard 自身自测（防止看护脚本腐化）
+      - name: Run guard self-tests
+        run: |
+          cd repo_workspace
+          python3 -m pytest ci/test_guard.py -q
+
+      - name: Check Issue plugin package
+        run: |
+          cd repo_workspace
+          python3 -m unittest discover -s plugins/mindspeed-scan-issue-agent/tests -p test_packaging.py -v
+
+      - name: Test Issue workspace and delivery claims
+        run: |
+          cd repo_workspace
+          python3 -m unittest discover -s plugins/mindspeed-scan-issue-agent/tests -p test_workspace.py -v
+          python3 -m unittest discover -s plugins/mindspeed-scan-issue-agent/tests -p test_delivery_claim.py -v

@@ -1,0 +1,21 @@
+# 首期验收场景 — Omni: Qwen3-Omni（预览，仅 Dry-run 与单卡）
+# 层级: CPU/Dry-run + 单卡 NPU（多卡回归延后）
+scenario: omni-qwen3-omni
+model: Qwen3-Omni
+model_type: omni
+priority: P2
+preview: true          # 首期作为预览场景，不作为放行门禁
+trainer: omni
+parallel:
+  fsdp2: true
+  ulysses_sp: false
+  ep: false
+stages:
+  - environment: {mode: npu, smoke_test: required}
+  - model-analysis: {reference_model: qwen3-omni}
+  - adaptation: {patchgen: [gpu, npu], data: omni, tests: [load, forward]}
+  - functional-validation: {min_steps: 1, checkpoint: false}
+  - precision-alignment: {pairs: [[gpu, npu_single]]}
+  - delivery: {reports: [acceptance_report.json, delivery_coverage_report.md, migration_process_record.md]}
+fixtures:
+  config: benchmarks/veomni/fixtures/toy-omni.yaml

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindSpeed-LLM FSDP2 Fused Operator Validation Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "workflow",
+    "operator",
+    "status",
+    "gate_passed",
+    "thresholds",
+    "baseline",
+    "candidate",
+    "comparison",
+    "errors",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "workflow": {
+      "type": "string",
+      "const": "mindspeed-llm-fsdp2-fused-op-integration"
+    },
+    "operator": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "enum": ["success", "failed", "blocked"]},
+    "gate_passed": {"type": "boolean"},
+    "thresholds": {
+      "type": "object",
+      "required": ["min_speedup_percent"],
+      "properties": {
+        "min_speedup_percent": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "baseline": {"$ref": "#/$defs/run"},
+    "candidate": {"$ref": "#/$defs/run"},
+    "comparison": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/comparison"}
+      ]
+    },
+    "errors": {"type": "array", "items": {"type": "string"}},
+    "artifacts": {
+      "type": "object",
+      "required": ["report"],
+      "properties": {"report": {"type": "string"}},
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "run": {
+      "type": "object",
+      "required": ["run_dir"],
+      "properties": {
+        "run_id": {"type": ["string", "null"]},
+        "run_dir": {"type": "string"},
+        "validation_report": {"type": "string"},
+        "training_log": {"type": "string"},
+        "training_script": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "measured_iterations",
+        "mean_step_time_ms",
+        "median_step_time_ms",
+        "max_memory_allocated_gb",
+        "max_memory_reserved_gb"
+      ],
+      "properties": {
+        "measured_iterations": {"type": "integer", "minimum": 1},
+        "mean_step_time_ms": {"type": "number", "exclusiveMinimum": 0},
+        "median_step_time_ms": {"type": "number", "exclusiveMinimum": 0},
+        "max_memory_allocated_gb": {"type": "number", "minimum": 0},
+        "max_memory_reserved_gb": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "comparison": {
+      "type": "object",
+      "required": [
+        "total_iterations",
+        "compared_iterations",
+        "warmup_iterations_excluded",
+        "baseline_metrics",
+        "candidate_metrics",
+        "delta"
+      ],
+      "properties": {
+        "total_iterations": {"type": "integer", "minimum": 1},
+        "compared_iterations": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 1}
+        },
+        "warmup_iterations_excluded": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 1}
+        },
+        "baseline_metrics": {"$ref": "#/$defs/metrics"},
+        "candidate_metrics": {"$ref": "#/$defs/metrics"},
+        "delta": {
+          "type": "object",
+          "required": [
+            "mean_step_time_ms",
+            "speedup_percent",
+            "max_memory_allocated_gb",
+            "max_memory_reserved_gb"
+          ],
+          "properties": {
+            "mean_step_time_ms": {"type": "number"},
+            "speedup_percent": {"type": "number"},
+            "max_memory_allocated_gb": {"type": "number"},
+            "max_memory_reserved_gb": {"type": "number"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

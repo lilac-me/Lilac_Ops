@@ -1,0 +1,45 @@
+{
+  "schema_version": "npu-coverage-plan-v2",
+  "coverage_mode": "representative",
+  "capability_checks": [
+    {
+      "capability_id": "device_selection",
+      "selected_entry_ids": ["tests/test_npu_device.py"],
+      "rationale": "在仓库原生训练目标前保留这个聚焦且低成本的设备测试。"
+    }
+  ],
+  "representative_groups": [
+    {
+      "group_id": "sft-lora-single",
+      "feature_ids": ["sft_lora"],
+      "member_entry_ids": ["examples/sft_lora_tiny.py", "examples/sft_lora_large.py"],
+      "representative_entry_ids": ["examples/sft_lora_tiny.py"],
+      "deferred_entry_ids": ["examples/sft_lora_large.py"],
+      "selection_reason": "tiny entry 使用更小的资产，但仍能到达相同的 trainer 和 LoRA 更新路径。",
+      "verification_goal": "观察真实 NPU 前向、数值有限的 loss、反向传播和 LoRA 优化器更新。",
+      "risk_level": "medium"
+    },
+    {
+      "group_id": "sft-full-single",
+      "feature_ids": ["sft_full"],
+      "member_entry_ids": ["examples/sft_full.py"],
+      "representative_entry_ids": ["examples/sft_full.py"],
+      "deferred_entry_ids": [],
+      "selection_reason": "这是范围内唯一的全参数 SFT entry。",
+      "verification_goal": "观察真实 NPU forward、数值有限的 loss、backward 和全参数 optimizer update。",
+      "risk_level": "medium"
+    },
+    {
+      "group_id": "grpo-vllm-single",
+      "feature_ids": ["grpo_vllm"],
+      "member_entry_ids": ["examples/grpo_vllm.py"],
+      "representative_entry_ids": ["examples/grpo_vllm.py"],
+      "deferred_entry_ids": [],
+      "selection_reason": "这是唯一同时执行 GRPO 更新和 vLLM rollout runtime 的 entry。",
+      "verification_goal": "观察 NPU 支持的生成、奖励处理和数值有限的 GRPO 策略更新。",
+      "risk_level": "high"
+    }
+  ],
+  "scope_decisions": [],
+  "rationale": "每个 NPU 敏感 equivalence group 运行一个 E2E 代表项，并明确保留共享设备 capability check。"
+}

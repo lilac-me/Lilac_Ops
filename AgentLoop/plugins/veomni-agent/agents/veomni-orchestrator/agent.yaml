@@ -1,0 +1,20 @@
+# Cross-platform agent config — shared by Claude Code and Codex
+name: veomni-orchestrator
+display_name: "VeOmni Orchestrator"
+role: "编排调度"
+version: "0.2.0"
+domain: veomni
+
+skills:
+  - veomni-npu-environment
+  - veomni-model-analysis
+  - veomni-quick-migration
+
+# Platform-specific configs
+claude_code:
+  entry: "veomni-orchestrator"
+  plugin: "veomni-agent"
+
+codex:
+  entry: "veomni-orchestrator"
+  tools: [Read, Write, Bash, Glob, Grep]

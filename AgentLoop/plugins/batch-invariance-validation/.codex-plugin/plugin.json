@@ -1,0 +1,21 @@
+{
+  "name": "batch-invariance-validation",
+  "version": "0.2.0",
+  "description": "Deterministic four-stage batch invariance validation for vLLM Ascend.",
+  "author": { "name": "mindspeed-agent" },
+  "license": "MIT",
+  "keywords": ["batch-invariance", "vllm-ascend", "npu", "validation"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Batch Invariance Validation",
+    "shortDescription": "Validate vLLM Ascend batch invariance",
+    "longDescription": "Automatically plans TP from visible devices and runs environment repair, operator analysis, functional validation, and Math500 acceptance through a bounded auditable state machine.",
+    "developerName": "mindspeed-agent",
+    "category": "Engineering",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Validate batch invariance for this vLLM Ascend model",
+      "Resume this blocked batch invariance validation run"
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "$id": "environment_report.json",
+  "title": "VeOmni 环境检查报告",
+  "type": "object",
+  "required": ["mode", "hardware", "software", "compatibility", "issues", "suggestions"],
+  "properties": {
+    "mode": { "type": "string", "enum": ["npu", "static"] },
+    "hardware": {
+      "type": "object",
+      "required": ["chip", "cpu_arch", "os"],
+      "properties": {
+        "chip": { "type": "string" },
+        "cpu_arch": { "type": "string", "enum": ["x86_64", "aarch64", "other"] },
+        "os": { "type": "string" },
+        "device_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "software": {
+      "type": "object",
+      "required": ["python", "veomni", "pytorch", "torchnpu", "cann", "transformers"],
+      "properties": {
+        "python": { "type": "string" },
+        "veomni": { "type": "string" },
+        "pytorch": { "type": "string" },
+        "torchnpu": { "type": "string" },
+        "cann": { "type": "string" },
+        "transformers": { "type": "string" },
+        "source_revision": { "type": "string" }
+      }
+    },
+    "smoke_test": {
+      "type": "object",
+      "properties": {
+        "executed": { "type": "boolean" },
+        "passed": { "type": "boolean" },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "compatibility": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["component", "status"],
+        "properties": {
+          "component": { "type": "string" },
+          "status": { "type": "string", "enum": ["OK", "WARN", "FAIL"] },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "issues": { "type": "array", "items": { "type": "string" } },
+    "suggestions": { "type": "array", "items": { "type": "string" } }
+  }
+}

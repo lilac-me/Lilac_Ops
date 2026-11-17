@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "source": "reports/alignment_summary.txt",
+      "destination": "reports/alignment_summary.txt"
+    },
+    {
+      "source": "reports/alignment_report.json",
+      "destination": "reports/alignment_report.json"
+    },
+    {
+      "source": "reports/alignment_report.md",
+      "destination": "reports/alignment_report.md"
+    },
+    {
+      "source": "reports/alignment_report.html",
+      "destination": "reports/alignment_report.html"
+    }
+  ]
+}

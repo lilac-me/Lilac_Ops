@@ -1,0 +1,24 @@
+# Cross-platform agent config
+name: ops-implement-agent
+display_name: "Ops Implement Agent"
+role: "算子落地"
+version: "1.0.0"
+domain: ops
+
+skills:
+  - triton-op-dev
+  - ops-bwd-golden
+  - tilelang-op-dev
+  - ascendc-op-dev
+  - ops-test-gen
+  - ops-profiling
+  - ops-boundary-survey
+
+claude_code:
+  entry: "ops-implement-agent"
+  plugin: "ops"
+
+codex:
+  entry: "ops-implement-agent"
+  model: claude-sonnet-5
+  tools: [Read, Write, Bash, Glob, Grep, WebFetch]

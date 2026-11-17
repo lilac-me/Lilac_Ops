@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindSpeed-LLM Remote Validation Config",
+  "type": "object",
+  "required": ["connection", "repository", "execution"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "connection": {
+      "type": "object",
+      "required": ["host", "user"],
+      "properties": {
+        "host": {"type": "string", "minLength": 1},
+        "user": {"type": "string", "minLength": 1},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "connect_timeout_seconds": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "repository": {
+      "type": "object",
+      "required": ["local_path", "remote_path"],
+      "properties": {
+        "local_path": {"type": "string", "minLength": 1},
+        "remote_path": {"type": "string", "pattern": "^/[A-Za-z0-9._/@+\\-]+$"}
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "required": ["script", "conda_env", "cann_env_scripts"],
+      "properties": {
+        "task_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "default": "training"
+        },
+        "script": {"type": "string", "minLength": 1},
+        "script_args": {"type": "array", "items": {"type": "string"}},
+        "environment": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[A-Z_][A-Z0-9_]*$"},
+          "additionalProperties": {"type": "string"},
+          "description": "传给远端 launcher 的环境变量；值可使用 {remote_repo} 和 {run_id}。"
+        },
+        "required_remote_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "kind": {
+                "type": "string",
+                "enum": ["exists", "file", "directory", "executable"],
+                "default": "exists"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "conda_env": {"type": "string", "minLength": 1},
+        "cann_env_scripts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^/"}
+        },
+        "timeout_seconds": {"type": "integer", "minimum": 1},
+        "silence_timeout_seconds": {"type": "integer", "minimum": 0},
+        "capture_npu_smi": {
+          "type": "boolean",
+          "description": "兼容旧配置；run 模式始终执行并记录强制 NPU 空闲检查，此字段不能关闭门禁。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sync": {
+      "type": "object",
+      "properties": {
+        "delete": {"type": "boolean"},
+        "exclude": {"type": "array", "items": {"type": "string"}},
+        "runtime_bundles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["local_path", "remote_subdir"],
+            "properties": {
+              "local_path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "本地 runtime 目录；相对路径以当前 remote config 所在目录解析。"
+              },
+              "remote_subdir": {
+                "type": "string",
+                "minLength": 1,
+                "description": "repository.remote_path 下的相对目录。"
+              },
+              "delete": {"type": "boolean", "default": true},
+              "include": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "string", "minLength": 1},
+                "description": "只同步匹配文件；未配置时同步 bundle 全部内容。"
+              },
+              "exclude": {"type": "array", "items": {"type": "string"}}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "local_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "本地输出根目录；相对路径以当前 Skill 集合根目录解析，run 产物使用 remote-validation-0001 等递增子目录。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "remote_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "远端产物目录，必须位于 remote repo 内；可使用 {remote_repo} 和 {run_id}。"
+        },
+        "include": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "exclude": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "pull_on_failure": {"type": "boolean", "default": true}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

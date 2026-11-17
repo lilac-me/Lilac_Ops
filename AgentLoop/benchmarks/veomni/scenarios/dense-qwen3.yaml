@@ -1,0 +1,23 @@
+# 首期验收场景 — Dense: Qwen3
+# 层级: CPU/Dry-run + 单卡 NPU + 多卡 NPU
+scenario: dense-qwen3
+model: Qwen3
+model_type: dense
+priority: P0
+trainer: text
+parallel:
+  fsdp2: true
+  ulysses_sp: false
+  ep: false
+stages:
+  - environment: {mode: npu, smoke_test: required}
+  - model-analysis: {reference_model: qwen3}
+  - adaptation: {patchgen: [gpu, npu], tests: [load, forward, train]}
+  - functional-validation: {min_steps: 2, checkpoint: false}
+  - parallel-recipe: {candidates_min: 2, consistency_check: required}
+  - precision-alignment: {pairs: [[gpu, npu_single], [npu_single, npu_multi]]}
+  - mfu-calculation: {model_type: dense}
+  - performance-tuning: {baseline_required: true, precision_rerun: required}
+  - delivery: {reports: [acceptance_report.json, delivery_coverage_report.md, migration_process_record.md]}
+fixtures:
+  config: benchmarks/veomni/fixtures/toy-dense.yaml

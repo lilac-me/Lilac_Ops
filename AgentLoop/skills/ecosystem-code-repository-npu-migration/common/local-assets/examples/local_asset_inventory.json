@@ -1,0 +1,17 @@
+{
+  "schema_version": "local-asset-inventory-v1",
+  "status": "PASS",
+  "created_at": "2026-01-01T00:00:00Z",
+  "model_roots": ["/data/models"],
+  "dataset_roots": ["/data/datasets"],
+  "models": [],
+  "datasets": [],
+  "inventory_digest": "b2a1cec164ce3916d11363f0e17c68d8bc523e358b56d1b83bbcd1eea287bb07",
+  "truncated": false,
+  "scan_limits": {
+    "models": {"max_depth": 4, "max_directories": 5000, "max_assets": 512},
+    "datasets": {"max_depth": 3, "max_directories": 8000, "max_assets": 1024}
+  },
+  "errors": [],
+  "warnings": ["配置的根目录下没有发现本地叶节点。"]
+}

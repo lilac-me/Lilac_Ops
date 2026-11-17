@@ -1,0 +1,177 @@
+{
+  "domain": "ops",
+  "case": "rmsnorm",
+  "difficulty": "medium",
+  "harness": "dsh",
+  "model": "deepseek-v4",
+  "provider": "deepseek",
+  "completed": true,
+  "dimensions": {
+    "completion": 100.0,
+    "performance": 16.84,
+    "engineering": 100.0,
+    "convergence": 100.0,
+    "efficiency": 100.0
+  },
+  "dimension_detail": {
+    "completion": {
+      "score": 100.0,
+      "passed": 12,
+      "failed": 0,
+      "bit_exact": false,
+      "note": null
+    },
+    "performance": {
+      "score": 16.84,
+      "deciding_speedup": 0.2525,
+      "base_speedup_score": 25.25,
+      "coverage_gate": 0.6667,
+      "coverage": {
+        "gate": 0.6666666666666666,
+        "covered": 2,
+        "total": 3,
+        "missing": [
+          [
+            16384,
+            16384
+          ]
+        ],
+        "note": "2/3 required shapes present"
+      },
+      "source": "bench_result.json",
+      "runs": 3,
+      "worst_speedup_std": 0.0018,
+      "note": "100*clamp(deciding_speedup) x required-shape coverage gate"
+    },
+    "engineering": {
+      "score": 100.0,
+      "files_present": "10/10",
+      "anti_cheat_pass": true,
+      "anti_cheat_reasons": [],
+      "design_sections": 12,
+      "note": "files 50% + anti-cheat 25% + design quality 25%"
+    },
+    "convergence": {
+      "score": 100.0,
+      "source": "bottleneck.json",
+      "classification": "reduction_bound",
+      "classification_ok": true,
+      "classification_expected": [
+        "reduction_bound"
+      ],
+      "classification_note": "matches the case's measured bottleneck ['reduction_bound']",
+      "suggestions": 6,
+      "convergence_reason": "NO_IMPROVEMENT",
+      "convergence_reason_ok": true,
+      "convergence_reason_note": null,
+      "reached_done": true,
+      "note": "structured: 30 class(checked against measured expectation) + 10 bw + 20 grading + 15 judgement + 10 done + 15 honest-reason(self-consistency checked)"
+    },
+    "efficiency": {
+      "score": 100.0,
+      "components": {
+        "tokens": 100.0,
+        "wall": 100.0,
+        "iter": 100.0
+      },
+      "budget": {
+        "budget_wall_ms": 3600000,
+        "budget_tokens": 250000
+      },
+      "tokens_captured": true,
+      "note": "tokens/wall/iter renormalised over available inputs"
+    }
+  },
+  "effect_score": 75.05,
+  "cost": {
+    "total_tokens": 118506,
+    "input_tokens": 86170,
+    "output_tokens": 32336,
+    "cache_read_tokens": 6533120,
+    "wall_ms": 1440000,
+    "iterations": {
+      "design": 1,
+      "implement": 1,
+      "optimize": 1
+    },
+    "reach_stage": "done"
+  },
+  "effect_per_1m_tokens": 633.3013,
+  "evidence": {
+    "test": {
+      "passed": 12,
+      "failed": 0,
+      "total": 12,
+      "bit_exact": false,
+      "has_test_result": true
+    },
+    "speedup": {
+      "deciding": 0.25254992300012363,
+      "rows": [
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "dtype": "torch.float32",
+          "speedup": 0.25254992300012363,
+          "speedup_std": 0.0016433894947908297,
+          "runs": 3
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "dtype": "torch.float16",
+          "speedup": 0.3540396399064139,
+          "speedup_std": 0.0017599296520283136,
+          "runs": 3
+        },
+        {
+          "shape": [
+            2048,
+            8192
+          ],
+          "dtype": "torch.float16",
+          "speedup": 0.357885336869303,
+          "speedup_std": 0.00038716460150902196,
+          "runs": 3
+        }
+      ],
+      "source": "bench_result.json",
+      "coverage": {
+        "gate": 0.6666666666666666,
+        "covered": 2,
+        "total": 3,
+        "missing": [
+          [
+            16384,
+            16384
+          ]
+        ],
+        "note": "2/3 required shapes present"
+      }
+    },
+    "bottleneck": {
+      "classification": null,
+      "has_suggestion_grading": true,
+      "has_bandwidth": false
+    },
+    "convergence": {
+      "reached_done": true,
+      "done_handoff": "→ handoff: OPTIMIZE_DONE: NO_IMPROVEMENT",
+      "convergence_reason": "NO_IMPROVEMENT",
+      "has_judgement": true
+    },
+    "anti_cheat": {
+      "kernel_found": true,
+      "native_triton": true,
+      "jit_kernels": [
+        "rmsnorm_cube_kernel"
+      ],
+      "reasons": [],
+      "pass": true
+    }
+  }
+}

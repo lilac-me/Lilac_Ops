@@ -1,0 +1,67 @@
+{
+  "$id": "mfu_report.json",
+  "title": "VeOmni MFU 计算报告",
+  "type": "object",
+  "required": ["model", "model_type", "formula", "inputs", "mfu", "missing_inputs", "conclusion"],
+  "properties": {
+    "model": { "type": "string" },
+    "model_type": { "type": "string", "enum": ["dense", "moe", "vlm", "omni", "dit"] },
+    "formula": { "type": "string" },
+    "inputs": {
+      "type": "object",
+      "required": ["global_batch", "seq_len", "valid_tokens_per_step", "step_time_ms", "device_count", "precision"],
+      "properties": {
+        "global_batch": { "type": "integer", "minimum": 1 },
+        "seq_len": { "type": "integer", "minimum": 1 },
+        "valid_tokens_per_step": { "type": "integer", "minimum": 1 },
+        "padding_ratio": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "step_time_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "device_count": { "type": "integer", "minimum": 1 },
+        "precision": { "type": "string", "enum": ["fp16", "bf16", "fp32"] }
+      }
+    },
+    "model_flops_per_token": {
+      "type": "object",
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "source": { "type": "string", "enum": ["veomni_flops_counter", "formula"] },
+        "assumptions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "moe": {
+      "type": ["object", "null"],
+      "properties": {
+        "total_params": { "type": "string" },
+        "active_params": { "type": "string" },
+        "routing_assumption": { "type": "string" }
+      }
+    },
+    "achieved_flops_per_s": { "type": ["number", "null"] },
+    "cluster_peak_flops_per_s": {
+      "type": "object",
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "per_device": { "type": "number" },
+        "source": { "type": "string" }
+      }
+    },
+    "mfu": {
+      "type": "object",
+      "properties": {
+        "single_device": { "type": ["number", "null"] },
+        "cluster": { "type": ["number", "null"] }
+      }
+    },
+    "log_cross_check": {
+      "type": "object",
+      "properties": {
+        "reported_mfu": { "type": ["number", "null"] },
+        "match": { "type": "boolean" },
+        "delta_reason": { "type": ["string", "null"] }
+      }
+    },
+    "missing_inputs": { "type": "array", "items": { "type": "string" } },
+    "conclusion": { "type": "string", "minLength": 1 }
+  }
+}

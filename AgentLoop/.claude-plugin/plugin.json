@@ -1,0 +1,12 @@
+{
+  "name": "mindspeed-agent",
+  "displayName": "MindSpeed Agent",
+  "version": "0.1.0",
+  "description": "核心插件（core）：ecosystem-routing 意图路由 + catalog 知识图谱底座。领域技能按需随 mindspeed-llm / inference-model-optimize / ops / doc-agent 插件安装（见 docs/install-on-demand-design.md）。",
+  "author": {
+    "name": "mindspeed-agent"
+  },
+  "skills": [
+    "./skills/common"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "title": "LintReport",
+  "description": "确定性 lint 的完整执行结果；评分只接受与当前文档版本和审查深度一致的 completed 报告",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["doc", "doc_sha256", "depth", "status", "issues", "errors"],
+  "properties": {
+    "doc": { "type": "string", "minLength": 1 },
+    "doc_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "depth": { "enum": ["L0", "L1", "L2"] },
+    "status": { "enum": ["completed", "failed"] },
+    "issues": { "type": "array", "items": { "$ref": "issue.json" } },
+    "errors": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  }
+}

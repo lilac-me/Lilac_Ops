@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "connection": {
+    "host": "请填写远端服务器的主机名或IP地址",
+    "user": "root",
+    "port": 22,
+    "connect_timeout_seconds": 10
+  },
+  "repository": {
+    "local_path": "/Users/abjfj/code/LLM/MindSpeed-LLM",
+    "remote_path": "/home/t00948729/testllm/MindSpeed-LLM"
+  },
+  "execution": {
+    "script": "examples/fsdp2/qwen3_moe/pretrain_qwen3_30b_4k_fsdp2_A2.sh",
+    "script_args": [],
+    "conda_env": "t00948729",
+    "cann_env_scripts": [
+      "/home/cann/9.0.0/ascend-toolkit/set_env.sh",
+      "/home/cann/9.0.0/nnal/atb/set_env.sh"
+    ],
+    "timeout_seconds": 7200,
+    "capture_npu_smi": true
+  },
+  "sync": {
+    "delete": false,
+    "exclude": []
+  },
+  "output": {
+    "local_path": "output"
+  }
+}

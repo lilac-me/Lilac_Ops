@@ -1,0 +1,14 @@
+{
+  "name": "batch-invariance-validation",
+  "displayName": "Batch Invariance Validation",
+  "version": "0.2.0",
+  "description": "批次不变性验收插件：自动 TP 规划、环境修复、算子分析、功能测试和 Math500 验收。",
+  "author": { "name": "mindspeed-agent" },
+  "skills": [
+    "./skills/batch-invariance-validation",
+    "./skills/batch-invariance-environment",
+    "./skills/batch-invariance-operator-analysis",
+    "./skills/batch-invariance-functional-test",
+    "./skills/batch-invariance-dataset-acceptance"
+  ]
+}

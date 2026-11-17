@@ -1,0 +1,27 @@
+{
+  "title": "FigureRequests",
+  "description": "插图诉求清单：占位与人工交付的交接点",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["doc", "items"],
+  "properties": {
+    "doc": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["no", "section", "purpose", "status"],
+        "properties": {
+          "no": { "type": "string" },
+          "section": { "type": "string" },
+          "purpose": { "type": "string" },
+          "elements": { "type": "string" },
+          "form": { "type": "string" },
+          "alt_text": { "type": "string" },
+          "status": { "enum": ["pending", "delivered"] }
+        }
+      }
+    }
+  }
+}

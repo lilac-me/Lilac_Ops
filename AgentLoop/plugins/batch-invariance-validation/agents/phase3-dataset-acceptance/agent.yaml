@@ -1,0 +1,13 @@
+name: phase3-dataset-acceptance
+description: 批次不变性阶段三执行者，负责 Math500 十轮数据集完整验收
+skills: [batch-invariance-dataset-acceptance]
+tools: [read, bash, skill]
+schema: stage_result_schema
+
+claude_code:
+  model: sonnet
+  extra_tools: [Read, Bash, Skill]
+
+codex:
+  model: claude-sonnet-5
+  context: fork

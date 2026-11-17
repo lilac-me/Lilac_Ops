@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "phase": "prefill",
+  "canonical_side": "train",
+  "entries": [
+    {
+      "diff_id": "D001",
+      "enabled": true,
+      "boundary": "decoder.layer0.example.output",
+      "tensor_file": "discovery/D001/tensors/train_reference.pt",
+      "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "weights_only": true,
+      "context": {
+        "model_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "config_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "sample_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "prompt_token_length": 1,
+        "token_slice": "slice:0,0,1",
+        "layer": 0,
+        "symbol": "package.module.Example.forward",
+        "call_index": 0,
+        "shape": [1],
+        "dtype": "torch.bfloat16"
+      },
+      "return_selector": "output.0",
+      "side_effects_covered": ["output.0"],
+      "activation_gate": {
+        "expected_hits": 1,
+        "post_injection_torch_equal": true,
+        "post_injection_max_abs_diff": 0,
+        "immediate_downstream_input_exact": true
+      }
+    }
+  ]
+}

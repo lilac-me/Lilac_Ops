@@ -1,0 +1,19 @@
+# Cross-platform agent config — shared by Claude Code and Codex
+name: veomni-performance-agent
+display_name: "VeOmni Performance Agent"
+role: "性能优化"
+version: "0.1.0"
+domain: veomni
+
+skills:
+  - veomni-mfu-calculation
+  - veomni-performance-tuning
+
+# Platform-specific configs
+claude_code:
+  entry: "veomni-performance-agent"
+  plugin: "veomni-agent"
+
+codex:
+  entry: "veomni-performance-agent"
+  tools: [Read, Write, Bash, Glob, Grep]

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindSpeed-LLM FSDP2 Fusion Correctness Gate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "workflow",
+    "mode",
+    "members",
+    "status",
+    "gates",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "workflow": {"const": "mindspeed-llm-fsdp2-fusion-correctness"},
+    "mode": {"enum": ["sequential", "atomic-combined"]},
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "status": {"enum": ["success", "failed", "blocked"]},
+    "gates": {
+      "type": "object",
+      "required": [
+        "requested_active",
+        "structure_signature",
+        "semantic_probes",
+        "logits_precision"
+      ],
+      "properties": {
+        "requested_active": {"$ref": "#/$defs/gate_status"},
+        "structure_signature": {"$ref": "#/$defs/gate_status"},
+        "semantic_probes": {"$ref": "#/$defs/gate_status"},
+        "logits_precision": {"$ref": "#/$defs/gate_status"}
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["structure_signature", "semantic_probes", "logits_precision"],
+      "properties": {
+        "structure_signature": {"type": "string", "minLength": 1},
+        "semantic_probes": {"type": "string", "minLength": 1},
+        "logits_precision": {"type": "string", "minLength": 1},
+        "runtime_evidence": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "gate_status": {"enum": ["passed", "failed", "blocked"]}
+  },
+  "additionalProperties": false
+}

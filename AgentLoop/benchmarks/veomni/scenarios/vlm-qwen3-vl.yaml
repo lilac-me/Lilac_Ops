@@ -1,0 +1,26 @@
+# 首期验收场景 — VLM: Qwen3-VL
+# 层级: CPU/Dry-run + 单卡 NPU + 多卡 NPU（跨模态回归）
+scenario: vlm-qwen3-vl
+model: Qwen3-VL
+model_type: vlm
+priority: P0
+trainer: vlm
+parallel:
+  fsdp2: true
+  ulysses_sp: true
+  ep: false
+required_checks:
+  - multimodal_metadata_alignment   # 图像 grid/position id 切分后对齐
+  - vision_token_counting           # 有效 token 统计覆盖视觉部分
+stages:
+  - environment: {mode: npu, smoke_test: required}
+  - model-analysis: {reference_model: qwen3-vl}
+  - adaptation: {patchgen: [gpu, npu], data: multimodal, tests: [load, forward, train]}
+  - functional-validation: {min_steps: 2, checkpoint: true}
+  - parallel-recipe: {candidates_min: 2, consistency_check: required}
+  - precision-alignment: {pairs: [[gpu, npu_single], [npu_single, npu_multi]]}
+  - mfu-calculation: {model_type: vlm, vision_tokens_included: true}
+  - performance-tuning: {hotspots: [attention, dataloader], precision_rerun: required}
+  - delivery: {reports: [acceptance_report.json, delivery_coverage_report.md, migration_process_record.md]}
+fixtures:
+  config: benchmarks/veomni/fixtures/toy-vlm.yaml

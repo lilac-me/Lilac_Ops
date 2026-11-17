@@ -1,0 +1,12 @@
+{
+  "repositories": [
+    {
+      "name": "Ascend/MindSpeed-MM",
+      "code_url": "https://gitcode.com/Ascend/MindSpeed-MM.git",
+      "default_branch": "master",
+      "mode": "dry-run",
+      "max_issues": 0,
+      "maintainers": []
+    }
+  ]
+}

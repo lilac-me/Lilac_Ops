@@ -1,0 +1,40 @@
+{
+  "title": "QualityReport",
+  "description": "审查汇总产物：四维评分、问题清单与结论",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["repo", "doc", "doc_sha256", "inputs_sha256", "round", "depth", "scores", "issues", "verdict", "manual_reasons"],
+  "properties": {
+    "repo": { "type": "string", "minLength": 1 },
+    "doc": { "type": "string", "minLength": 1 },
+    "doc_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "inputs_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "round": { "type": "integer", "minimum": 1 },
+    "depth": { "enum": ["L0", "L1", "L2"] },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correctness", "completeness", "clarity", "accessibility", "total"],
+      "properties": {
+        "correctness": { "type": "number", "minimum": 0, "maximum": 100 },
+        "completeness": { "type": "number", "minimum": 0, "maximum": 100 },
+        "clarity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "accessibility": { "type": "number", "minimum": 0, "maximum": 100 },
+        "total": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "issues": { "type": "array", "items": { "$ref": "issue.json" } },
+    "verdict": { "enum": ["pass", "fail", "manual_intervention"] },
+    "manual_reasons": { "type": "array", "items": { "type": "string" } }
+  }
+}

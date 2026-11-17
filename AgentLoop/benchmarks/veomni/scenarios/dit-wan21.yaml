@@ -1,0 +1,23 @@
+# 首期验收场景 — 生成模型: Wan2.1（DiT）
+# 层级: CPU/Dry-run + 单卡 NPU
+scenario: dit-wan21
+model: Wan2.1
+model_type: dit
+priority: P1
+trainer: dit
+parallel:
+  fsdp2: true
+  ulysses_sp: true
+  ep: false
+stages:
+  - environment: {mode: npu, smoke_test: required}
+  - model-analysis: {reference_model: wan21}
+  - adaptation: {patchgen: [gpu, npu], data: video, tests: [load, forward, train]}
+  - functional-validation: {min_steps: 1, checkpoint: true}
+  - parallel-recipe: {candidates_min: 2, consistency_check: required}
+  - precision-alignment: {pairs: [[gpu, npu_single]]}
+  - mfu-calculation: {model_type: dit, latent_tokens_required: true}
+  - performance-tuning: {precision_rerun: required}
+  - delivery: {reports: [acceptance_report.json, delivery_coverage_report.md, migration_process_record.md]}
+fixtures:
+  config: benchmarks/veomni/fixtures/toy-dit.yaml

@@ -1,0 +1,37 @@
+{
+  "title": "DesignPlan",
+  "description": "资料设计阶段产物：仓库资料组合条目、协作模式与设计者自拟的章节清单",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["repo", "doc", "type_id", "rationale"],
+  "properties": {
+    "repo": { "type": "string" },
+    "doc": { "type": "string" },
+    "type_id": { "type": "string", "pattern": "^D-[A-Z0-9-]+$" },
+    "contribution_mode": { "enum": ["ascend_dir", "inline", "none"] },
+    "required_sections": {
+      "description": "设计者自拟的章节清单（仓库级清单不约束内部目录，仅供参考）",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "optional_sections": { "type": "array", "items": { "type": "string" } },
+    "figure_baseline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["no", "section", "purpose", "status"],
+        "properties": {
+          "no": { "type": "string" },
+          "section": { "type": "string" },
+          "purpose": { "type": "string" },
+          "elements": { "type": "string" },
+          "form": { "type": "string" },
+          "alt_text": { "type": "string" },
+          "status": { "enum": ["pending", "delivered"] }
+        }
+      }
+    },
+    "rationale": { "type": "string" }
+  }
+}

@@ -1,0 +1,13 @@
+name: optimizer
+description: 推理模型优化方案实施 — 思考方案、生成方案代码、测试验证优化有效性
+skills: [vllm-ascend-serving, vllm-ascend-benchmark, ascend-perf-tuning]
+tools: [read, bash, skill]
+schema: optimizer_schema
+
+claude_code:
+  model: sonnet
+  extra_tools: [Read, Bash, Skill]
+
+codex:
+  model: claude-sonnet-5
+  context: fork

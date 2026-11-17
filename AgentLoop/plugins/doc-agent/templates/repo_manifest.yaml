@@ -1,0 +1,127 @@
+# 仓库级必备资料清单（正式定义）
+# 定位：只约束"一个代码仓需要哪些资料"，不约束每份资料的内部目录结构，
+#       资料内部内容由 doc-writer 按目标仓场景灵活撰写。
+# 版本：1.2.1（changed: 2026-08 1.2.0 新增 placement 存放规则；1.2.1 引入
+#       out_of_scope（docs/en 由翻译团队负责，不纳入检查）与 soft_scope
+#       （examples/tests/docker 零星文件合理，minor 提示））
+# 必备（required）：仓库必须具备的资料。
+# 条件（when）：按仓库能力决定是否必备——repo_has_models（承载模型内容）、
+#              repo_has_toolchain（提供工具链能力）。
+# 标题自适应（name_when_models）：条目始终必备，仅标题随能力切换——
+#              repo_has_models 为真时用 name_when_models，为假时用 name。
+# 可选（optional）：默认清单；doc-agent 使用者可通过输入诉求动态增删。
+# 检测方式：
+#   files:   文件名 glob 匹配（相对仓库根，递归匹配任意深度，如 docs/zh/**；
+#            LICENSE 等非 md 文件亦可）
+#   heading: 任意 .md 文档的 H1/H2 标题匹配（资料以 README 章节形态存在时）；
+#            可为列表，任一命中即视为存在
+#   两者满足其一即视为存在。
+
+required:
+  - id: D-INTRO
+    name: 简介
+    files: [README.md, introduction*.md]
+    heading: 简介
+  - id: D-NEWS
+    name: 最新消息
+    files: []
+    heading: 最新消息
+  - id: D-RELEASE
+    name: 版本说明
+    files: [release_notes*.md, RELEASE*.md, docs/*release*.md]
+    heading: 版本说明
+  - id: D-INSTALL
+    name: 安装指导
+    files: [install*.md, docs/*install*.md]
+    heading: 安装指导
+  - id: D-QUICKSTART
+    name: 快速上手
+    files: [quickstart*.md, quick_start*.md, docs/*quick*start*.md]
+    heading: 快速上手
+  - id: D-MODEL-SUPPORT
+    name: 支持特性
+    name_when_models: 支持模型/特性
+    files: [supported*.md, support*.md]
+    heading: [支持特性, 支持模型]
+  - id: D-MODEL-DEV
+    name: 特性开发指导
+    name_when_models: 模型/特性开发指导
+    files: [dev*.md, develop/*.md]
+    heading: [特性开发指导, 开发指导]
+  - id: D-TUNING
+    name: 模型性能调优指导
+    when: repo_has_models
+    files: ['*tuning*.md']
+    heading: 性能调优
+  - id: D-SECURITY
+    name: 安全声明
+    files: [security*.md, SECURITYNOTE*.md]
+    heading: 安全声明
+  - id: D-DISCLAIMER
+    name: 免责声明
+    files: [disclaimer*.md]
+    heading: 免责声明
+  - id: D-LICENSE
+    name: License 声明
+    files: [LICENSE, LICENSE.md, LICENSE.txt]
+    heading: License
+  - id: D-CONTRIB
+    name: 贡献声明
+    files: [CONTRIBUTING.md]
+    heading: 贡献指南
+  - id: D-FAQ
+    name: FAQ
+    files: [FAQ*.md, faq*.md, docs/*faq*.md]
+    heading: FAQ
+  - id: D-ACKS
+    name: 致谢
+    files: []
+    heading: 致谢
+
+optional:
+  - id: D-STRUCTURE
+    name: 目录结构
+    files: []
+    heading: 目录结构
+  - id: D-TOOLCHAIN
+    name: 工具链使用指导
+    when: repo_has_toolchain
+    files: [tool*.md, tools/*.md]
+    heading: 工具链
+  - id: D-ROADMAP
+    name: 未来规划
+    files: []
+    heading: 未来规划
+  - id: D-JOIN
+    name: 加入我们
+    files: []
+    heading: 加入我们
+  - id: D-INFER
+    name: 模型推理
+    files: [inference*.md, docs/*inference*.md]
+    heading: 模型推理
+  - id: D-EVAL
+    name: 模型评测
+    files: [evaluation*.md, docs/*eval*.md]
+    heading: 模型评测
+
+# 存放规则（placement）：与仓库性质相关的资料存放位置约束。
+# applies_to: self_developed = 昇腾自研开源仓（强制）；三方仓不适用。
+placement:
+  - id: P-ZH
+    name: 资料统一存放于 docs/zh
+    applies_to: self_developed
+    rule: 自研代码仓的中文资料必须存放在仓库根目录下的 docs/zh/ 内
+    out_of_scope:
+      - docs/en/**
+    soft_scope:
+      - examples/**
+      - tests/**
+      - docker/**
+    exceptions:
+      - README*.md
+      - CONTRIBUTING.md
+      - LICENSE*
+      - CHANGELOG.md
+      - Third_Party_Open_Source_Software_Notice
+      - OWNERS

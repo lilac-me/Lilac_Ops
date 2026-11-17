@@ -1,0 +1,8 @@
+{
+  "status": "INSUFFICIENT_EVIDENCE",
+  "reason": "Native worker evidence is not yet sufficient to propose a real-path repair.",
+  "evidence_files": [
+    "evidence/difference_packet.json"
+  ],
+  "next_action": "The primary agent must collect a narrow real-path dump before repair planning."
+}

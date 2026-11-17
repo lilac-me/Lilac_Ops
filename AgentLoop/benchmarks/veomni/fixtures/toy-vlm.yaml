@@ -1,0 +1,22 @@
+# Qwen3-VL 的最小多模态冒烟配置。真实执行前必须将 image_manifest 替换为有效样本。
+model:
+  name: Qwen3-VL
+  dtype: bf16
+  text_seq_len: 128
+  vision_tokens: 64
+  hidden_size: 256
+  num_layers: 2
+data:
+  fixture: benchmarks/veomni/fixtures/minimal-dataset.jsonl
+  image_manifest: REQUIRED_AT_RUNTIME
+  batch_size: 1
+  num_workers: 0
+parallel:
+  world_size: 1
+  fsdp2: {enabled: false}
+  ulysses_sp: 1
+training:
+  steps: 2
+  optimizer: adamw
+output:
+  checkpoint: true

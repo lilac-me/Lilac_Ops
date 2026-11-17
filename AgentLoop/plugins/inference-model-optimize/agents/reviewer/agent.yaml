@@ -1,0 +1,13 @@
+name: reviewer
+description: 推理模型性能诊断 — 对 tester 最优配置采集 profiling（workload 必须与测试场景完全一致：请求数/并发/输入输出长度不可缩小），瓶颈三分类，输出优化建议
+skills: [ascend-profiling-collection, ascend-msprof-analyze-cli, ascend-perf-tuning]
+tools: [read, bash, skill]
+schema: reviewer_schema
+
+claude_code:
+  model: sonnet
+  extra_tools: [Read, Bash, Skill]
+
+codex:
+  model: claude-sonnet-5
+  context: fork

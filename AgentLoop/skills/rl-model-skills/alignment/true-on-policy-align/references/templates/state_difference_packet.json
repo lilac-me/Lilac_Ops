@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "diff_id": "D901",
+  "phase": "prefill",
+  "boundary_kind": "state_transition",
+  "execution_order": 900,
+  "observation": "native",
+  "semantic_boundary": "actor_to_rollout.weight_reload",
+  "upstream_replay_ids": [],
+  "proof": {
+    "aligned_prefix": true,
+    "same_model_config_sample": true,
+    "expected_transition_recorded": true,
+    "source_state_recorded": true,
+    "target_state_recorded": true,
+    "post_transition_state_mismatch": true,
+    "no_nonfinite": true,
+    "target_transition_observation": "missing",
+    "expected_state_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "target_before_state_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "target_after_state_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "impact_metric": "training/rollout_probs_diff_mean",
+    "impact_max_abs_diff": 0.0001
+  },
+  "root_cause": {
+    "class": "State transition",
+    "confidence": "SUPPORTED"
+  },
+  "source": {
+    "train": "train_repo/path.py::weight_update@revision",
+    "infer": "infer_repo/path.py::reload_weights@revision"
+  },
+  "evidence": {
+    "state_manifest": "discovery/epoch-002/D901/state_manifest.json",
+    "before_after_report": "discovery/epoch-002/D901/before_after_report.json",
+    "event_log": "runs/long-horizon/first_nonzero.json",
+    "artifact_hashes": [
+      "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    ]
+  },
+  "replay": {
+    "recommended_boundary": "actor_to_rollout.weight_reload",
+    "side_effects_to_cover": ["model weights", "optimizer step", "runtime caches"],
+    "status": "unsafe"
+  },
+  "repair": {
+    "group_hint": "weight-reload-state-transition",
+    "status": "not_started"
+  }
+}

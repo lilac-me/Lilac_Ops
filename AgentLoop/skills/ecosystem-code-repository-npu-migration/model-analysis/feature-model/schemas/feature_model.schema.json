@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "repository_summary", "capabilities", "features", "entries", "equivalence_groups"],
+  "properties": {
+    "schema_version": {"const": "npu-feature-model-v2"},
+    "repository_summary": {
+      "type": "object",
+      "required": ["primary_purpose", "in_scope_roots", "inspected_sources", "entry_organization"],
+      "properties": {
+        "primary_purpose": {"type": "string", "minLength": 1},
+        "in_scope_roots": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "inspected_sources": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "entry_organization": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["capability_id", "name", "description", "source_refs"],
+        "properties": {
+          "capability_id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "source_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["feature_id", "name", "category", "description", "dimensions", "requires_capabilities", "source_refs"],
+        "properties": {
+          "feature_id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "category": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "dimensions": {"type": "object", "minProperties": 1},
+          "requires_capabilities": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "source_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["entry_id", "path", "entry_type", "feature_ids", "capability_ids", "classification_reason"],
+        "properties": {
+          "entry_id": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "minLength": 1},
+          "entry_type": {"enum": ["unit_test", "e2e_example", "script", "doc_command", "other"]},
+          "command": {"type": "string", "minLength": 1},
+          "feature_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "capability_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "equivalence_group": {"type": "string", "minLength": 1},
+          "classification_reason": {"type": "string", "minLength": 1}
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "entry_type": {"enum": ["unit_test", "e2e_example", "script", "doc_command"]}
+              }
+            },
+            "then": {"required": ["command"]}
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "equivalence_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["group_id", "name", "entry_ids", "equivalence_basis", "differentiators_checked"],
+        "properties": {
+          "group_id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "entry_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "equivalence_basis": {"type": "string", "minLength": 1},
+          "differentiators_checked": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

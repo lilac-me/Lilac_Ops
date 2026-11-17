@@ -1,0 +1,21 @@
+{
+  "name": "veomni-agent",
+  "version": "0.2.1",
+  "description": "VeOmni framework onboarding plugin for Ascend NPU: code adaptation, training validation, precision alignment, performance tuning, and consolidated delivery reports.",
+  "author": { "name": "mindspeed-agent" },
+  "license": "MIT",
+  "keywords": ["veomni", "ascend", "npu", "migration", "dataset", "dataloader", "precision", "profiling"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "VeOmni Agent",
+    "shortDescription": "完整迁移闭环，最终仅两份交付报告",
+    "longDescription": "VeOmni Agent 插件支持环境检查、模型适配、代码修改、训练与功能验证、精度对齐及性能调优。阶段 JSON/YAML 用作门禁证据，最终只向用户交付覆盖报告和过程记录。",
+    "developerName": "mindspeed-agent",
+    "category": "Engineering",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "将 Qwen3-MoE 接入 VeOmni，运行训练、精度校验和性能调优，最终只输出两份交付报告",
+      "迁移模型的 dataset、dataloader、model、config，并生成覆盖报告与过程记录"
+    ]
+  }
+}
