@@ -1,0 +1,11 @@
+{
+  "repository": "https://gitcode.com/sijiaali/ascendc-kernelgen-data.git",
+  "branch": "br_perf_baseline",
+  "commit": "e728d2e0607a2bdbd9c2cb9dbdcbf35e794b14bb",
+  "source_path": "npu-kernelbench",
+  "source_tree": "ca1bd3d0c364924d080eb14a38319f5940860e2c",
+  "requested_dataset_path": "npu-kernelbench/data/kernel_generator",
+  "import_mode": "source snapshot tracked as regular files in ops; no submodule",
+  "license_source_path": "LICENSE",
+  "imported_at": "2026-11-17T10:46:01+00:00"
+}
