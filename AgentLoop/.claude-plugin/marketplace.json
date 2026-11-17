@@ -58,7 +58,7 @@
     {
       "name": "ops",
       "displayName": "Ops Agent",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "description": "领域插件（按需）：昇腾算子开发 — 设计详设 + 代码生成 + 性能优化 + Profiling + 测试验收，完整算子开发闭环（Triton / Ascend C / TileLang）。",
       "source": "./plugins/ops"
     },

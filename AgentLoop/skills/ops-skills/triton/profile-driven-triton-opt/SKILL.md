@@ -1,16 +1,14 @@
 ---
 name: profile-driven-triton-opt
 description: >-
-  This skill should be used when the user wants to run the end-to-end
-  profile-driven Triton operator tuning workflow: take an Ascend NPU profiler
-  archive, identify bottleneck custom Triton operators, assemble their user
-  sources, and serially run the performance-tuning module (verifier correctness
-  gate + latency/simulator optimizer) on each candidate against its user-provided
-  kernel as the single speedup denominator, then produce a batch report. Typical
-  triggers include "optimize the Triton kernels found in this profile",
-  "profile-driven tune my hot triton ops", or "run the full S0-S6 tuning loop".
-  It only tunes existing kernels — it never regenerates an operator.
-version: 1.0.0
+  This skill should be used when the user wants to identify hot Triton kernels
+  from Ascend profiling and tune their existing sources with cannbot. It supports
+  the operator-level S0-S6 workflow and a single model pass: collect profiling
+  once, freeze the candidate batch, tune each operator, integrate verified
+  patches, and measure whole-model regression once without a model-level MFU
+  target. It validates correctness and performance against the user's original
+  kernels and produces patches and measured reports; it does not generate new operators.
+version: 1.1.0
 domain: ops
 function: triton
 tags:
@@ -30,6 +28,14 @@ targets-repo:
 ## 功能概述
 
 把「profile 解析 → 瓶颈识别 → 源装配 → 单算子性能调优 → 汇总报告」串成一条**算子级**闭环。
+用户要求从模型训练采集热点并返回整网优化结果时，使用新增的**整网单批模式**：
+先读 [整网接入与配置](docs/model-hotspot-pass.md)，运行
+`plugins/ops/engine/model_hotspot.py` 的 `run`，或按 `prepare → 算子调优 → finish` 执行。
+仅采集一次热点并冻结本轮清单；算子内部可迭代，整网只做一次优化后回归，不设置整网 MFU 目标。
+
+下述 S0–S6 仍是复用的算子内层；算子报告中的「未做整网验收」只描述内层产物，
+整网模式的实际验收结果以 `model_report.json` / `model_report.md` 为准。
+
 入口命令：
 
 ```text
@@ -37,7 +43,7 @@ targets-repo:
     [--metric-mode speedup|mfu]
 ```
 
-**定位与边界（设计 §9 语义不变量）：**
+**算子内层定位与边界（整网外层见上述接入文档）：**
 
 - 只做**算子级归因**，不做端到端验收。
 - **只做性能调优，不重新生成算子**——用户源即已产出的真实 triton kernel。
