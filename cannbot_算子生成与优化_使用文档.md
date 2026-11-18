@@ -39,7 +39,7 @@
 | AscendC | A5 生成、训练反向生成 | [ascendc-port-orchestrator](https://gitcode.com/cann/cannbot/tree/master/plugins-community/ascendc-port-orchestrator) | 算子描述/数学公式/输入输出规格 | Claude Code、OpenCode、Codex、DSH、Trae
 | AscendC | A5 性能优化 | ops-perf-evolution | ascendc/triton/cuda 算子参考实现 | Claude Code、 OpenCode、Trae、Cursor
 | Triton | A2/A3 生成 | [triton-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/triton-op-generator) | torch/GPU Triton Kernel 参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
-| Triton | A2/A3 性能优化 | ops-perf-evolution | triton 参考实现 | Claude Code、OpenCode、Trae、Cursor
+| Triton | A2/A3 性能优化 | [triton-latency-optimizer](https://gitcode.com/cann/cannbot-skills/tree/master/ops/triton-latency-optimizer)、[triton-optimizer](https://gitcode.com/cann/cannbot/tree/master/plugins-community/triton-optimizer) | triton 参考实现 | Claude Code、OpenCode、Trae、Cursor
 | Triton | A2/A3 迁移 A5 | [triton-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/triton-op-generator) | triton 参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
 | Triton | A5 生成 | [triton-optimizer](https://gitcode.com/cann/cannbot/tree/master/plugins-community/triton-optimizer) | Triton Ascend NPU 算子/Torch 参考实现 | Claude Code、OpenCode、Trae、Cursor、Copilot
 | Catlass | A2/A3/A5 生成 | [catlass-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/catlass-op-generator) | 数学 contract/算子需求/可审查参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
