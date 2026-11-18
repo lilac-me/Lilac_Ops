@@ -34,10 +34,10 @@
 | 生成算子的语言 | 生成场景 | CANNBot 插件 | 支持输入 | 支持框架 |
 | --- | --- | --- | --- | --- |
 | AscendC | A2/A3 生成 | [tilelang2ascendc-ops-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-community/tilelang2ascendc-ops-generator) | triton/torch/cuda | 参考实现 Claude Code、OpenCode、Trae、Cursor、Copilot、CodeArts |
-| AscendC | A2/A3 性能优化 | ops-perf-evolution | AscendC 算子参考实现 | Claude Code、OpenCode、Trae、Cursor
+| AscendC | A2/A3 性能优化 | - | AscendC 算子参考实现 | Claude Code、OpenCode、Trae、Cursor
 | AscendC | A2/A3 迁移 A5 | [ascendc-port-orchestrator](https://gitcode.com/cann/cannbot/tree/master/plugins-community/ascendc-port-orchestrator) | ascendc/triton/cuda 参考实现  | Claude Code、OpenCode、Cursor、Copilot
 | AscendC | A5 生成、训练反向生成 | [ascendc-port-orchestrator](https://gitcode.com/cann/cannbot/tree/master/plugins-community/ascendc-port-orchestrator) | 算子描述/数学公式/输入输出规格 | Claude Code、OpenCode、Codex、DSH、Trae
-| AscendC | A5 性能优化 | ops-perf-evolution | ascendc/triton/cuda 算子参考实现 | Claude Code、 OpenCode、Trae、Cursor
+| AscendC | A5 性能优化 | - | ascendc/triton/cuda 算子参考实现 | Claude Code、 OpenCode、Trae、Cursor
 | Triton | A2/A3 生成 | [triton-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/triton-op-generator) | torch/GPU Triton Kernel 参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
 | Triton | A2/A3 性能优化 | [triton-latency-optimizer](https://gitcode.com/cann/cannbot-skills/tree/master/ops/triton-latency-optimizer)、[triton-optimizer](https://gitcode.com/cann/cannbot/tree/master/plugins-community/triton-optimizer) | triton 参考实现 | Claude Code、OpenCode、Trae、Cursor
 | Triton | A2/A3 迁移 A5 | [triton-op-generator](https://gitcode.com/cann/cannbot/tree/master/plugins-official/triton-op-generator) | triton 参考实现 | Claude Code、OpenCode、Trae、Cursor、Codex、Copilot、CodeArts
