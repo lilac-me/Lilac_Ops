@@ -28,6 +28,10 @@ bash install.sh /path/to/model claude
 
 ## 2. 配置训练
 
+新增统一 Megatron / FSDP 训练接入，默认 20 step、前 10 step 训练预热、第 11 step profiler 预热、第 12–14 step 正式采集。FSDP 采用公共 TrainingHook，不区分 VeOmni / TorchTitan；Megatron 可使用原生 profiler 或同一个 Hook。详细接入见 [训练后端说明](skills/ops-skills/triton/profile-driven-triton-opt/docs/training-backend.md)，配置示例：[FSDP](skills/ops-skills/triton/profile-driven-triton-opt/docs/model-pass.fsdp.example.json) / [Megatron](skills/ops-skills/triton/profile-driven-triton-opt/docs/model-pass.megatron.example.json)。
+
+以下为旧版分阶段命令配置（仍支持）：
+
 复制 [model-pass.example.json](skills/ops-skills/triton/profile-driven-triton-opt/docs/model-pass.example.json) 至模型自己的配置目录，填写实际路径、profile_command、benchmark_command、source_map、workload。若使用自动 CLI 模式还必须配置 tune_command（支持 {request} 和 {prompt}）。
 
 训练脚本负责真实开启/关闭框架 profiler，固定 checkpoint、数据、随机种子、并行策略、batch 和测量窗口。多 rank 产物使用 profile_subdir 指定统计 rank。source_map 需要提供真实源码，未匹配则跳过。具体环境变量及指标格式见 [整网单批接入说明](skills/ops-skills/triton/profile-driven-triton-opt/docs/model-hotspot-pass.md)。

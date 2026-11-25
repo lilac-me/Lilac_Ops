@@ -16,6 +16,7 @@ import tempfile
 import uuid
 
 from model_metrics import aggregate, compare, number, validate_metrics
+from training_backend.base import normalize, phase_env
 
 ROOT = Path(__file__).resolve().parents[3]
 SKILL = ROOT / "skills/ops-skills/triton/profile-driven-triton-opt"
@@ -60,7 +61,7 @@ def locked(run):
 
 def load_config(path):
     path = Path(path).resolve()
-    cfg = read(path)
+    cfg = normalize(read(path))
     cfg["model_root"] = str((path.parent / cfg["model_root"]).resolve())
     if not Path(cfg["model_root"]).is_dir():
         raise ValueError("model_root 不存在")
@@ -72,7 +73,8 @@ def load_config(path):
     for name in ("model", "checkpoint", "data", "seed", "precision", "parallelism", "batch_size", "sequence_length"):
         if name not in workload:
             raise ValueError(f"workload 缺 {name}，必须固定整网对照配置")
-    cfg["workload_id"] = hashlib.sha256(json.dumps(workload, sort_keys=True).encode()).hexdigest()
+    identity = workload if "training" not in cfg else {"workload": workload, "training": cfg["training"], "profiling": cfg["profiling"]}
+    cfg["workload_id"] = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     cfg.setdefault("timeout_seconds", 7200)
     number(cfg["timeout_seconds"], "timeout_seconds", positive=True)
     cfg.setdefault("min_steps", 5)
@@ -104,6 +106,14 @@ def execute(argv, cfg, run, phase, directory, extra=None):
                 "AGENTLOOP_METRICS_PATH": str(directory / "metrics.json"),
                 "AGENTLOOP_WORKLOAD_ID": cfg["workload_id"],
                 "AGENTLOOP_PROFILE_ENABLED": "1" if phase == "profile" else "0"})
+    backend_env = phase_env(cfg, phase)
+    if backend_env:
+        env.update(backend_env)
+        # Training processes import the hook from the engine, including torchrun children.
+        engine = str(Path(__file__).resolve().parent)
+        env["PYTHONPATH"] = engine + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+        for key, value in backend_env.items():
+            command = [arg.replace("{" + key.removeprefix("AGENTLOOP_").lower() + "}", value) for arg in command]
     with (directory / "command.log").open("w") as stream:
         process = subprocess.Popen(command, cwd=cfg["model_root"], env=env,
                                    stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
@@ -124,8 +134,16 @@ def execute(argv, cfg, run, phase, directory, extra=None):
 
 
 def metrics(run, cfg, phase):
-    return validate_metrics(read(run / phase / "metrics.json"), run.name, phase,
+    data = validate_metrics(read(run / phase / "metrics.json"), run.name, phase,
                             cfg["workload_id"], cfg["min_steps"])
+    if "training" in cfg:
+        t = cfg["training"]
+        expected = t["max_steps"] - t["benchmark_warmup_steps"]
+        if len(data["samples"]) != expected:
+            raise ValueError(f"expected {expected} benchmark samples")
+        if t["integration"] == "hook" and [s["step"] for s in data["samples"]] != list(range(t["benchmark_warmup_steps"] + 1, t["max_steps"] + 1)):
+            raise ValueError("hook benchmark step window mismatch")
+    return data
 
 
 def unchanged(state):
@@ -180,6 +198,13 @@ def prepare(config_path, out):
             state["sources"][rel] = {"sha256": digest(source), "snapshot": str(frozen)}
         execute(cfg["profile_command"], cfg, run, "profile", run / "profile")
         profile = inside(run / "profile", cfg.get("profile_subdir", "."))
+        if cfg.get("training", {}).get("integration") == "hook":
+            p, t = cfg["profiling"], cfg["training"]
+            done = read(profile / "agentloop_profile_done.json")
+            expected = {"run_id": run.name, "rank": p["ranks"][0], "steps": t["max_steps"],
+                        "skip_first": p["skip_first"], "warmup": p["warmup"], "active": p["active"]}
+            if done != expected:
+                raise ValueError("hook profiling completion marker mismatch")
         if len(list(profile.rglob("kernel_details.csv"))) != 1:
             raise ValueError("请选择仅含一个 kernel_details.csv 的 profile_subdir（显式选择统计 rank）")
         analyzer_config = run / "analyzer_config.json"

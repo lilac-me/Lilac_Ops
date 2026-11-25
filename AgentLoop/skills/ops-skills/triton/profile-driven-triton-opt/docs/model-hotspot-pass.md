@@ -19,6 +19,8 @@ profiling 只采集一次。为避免采集开销干扰前后对比，另有两�
 
 ## 配置与入口
 
+统一 Megatron / FSDP 后端及固定 Step Hook 接入见 [training-backend.md](training-backend.md)。以下旧版命令配置仍可使用；新配置不同时填写旧的 phase commands。
+
 复制同目录 `model-pass.example.json`，填写实际训练仓、启动命令及源码映射。
 在已具备模型、数据、CANN/NPU 和 cannbot skills 的训练环境中运行；本机无需替训练框架重写启动器。
 `model_root` 相对配置文件解析，命令 cwd 均为它。默认算子基线为真实源文件，调优期间只修改副本。
