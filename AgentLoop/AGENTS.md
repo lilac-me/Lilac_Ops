@@ -1,11 +1,9 @@
-# AgentLoop Profile Opt Lite
+# AgentLoop Training Optimization
 
-只处理训练 Profiling 驱动的现有 Triton 算子优化。不要重新生成算子，不引入其他领域工作流。
+只处理大模型训练系统优化（Megatron/FSDP），当前落地场景是 Profiling 驱动的算子优化。通信、并行、调度、显存和集群是后续独立优化领域，不属于算子生成任务。不要接入推理服务或推理工作流。
 
 - 整网任务：先读 README.md 和 skills/ops-skills/triton/profile-driven-triton-opt/docs/model-hotspot-pass.md，使用 plugins/ops/engine/model_hotspot.py run 或 prepare → 逐个 prompt.txt → finish。
-- 已有 Profiling：使用 skills/ops-skills/triton/profile-driven-triton-opt/SKILL.md 与同目录 AGENTS.md，配合 analyzer 和 source assembler。
-- 单算子必须使用 CANNBot verifier、latency/simulator optimizer；不自行伪造 benchmark 或优化结果。仅在工作副本修改，生成经过验证的补丁。
-- 缺真实源码则跳过；弱候选人工核定；整网只在 finish 统一集成与回归，失败回滚。没有自动二次热点采集。
-- 保留原有产物契约及测试；不绕过精度、性能及补丁验收。
-
-整网先读取 skills/ops-skills/triton/profile-driven-triton-opt/docs/operator-routing.md：按真实实现语言选择 CANNBot 插件，Triton 单算子走原有优化路径；Ascend C 或合法同语言融合生成使用独立 generation_requests，禁止将生成任务直接按旧 Triton 单文件契约集成。混合/未知语言先切分或核实。
+- 已有 Profiling：使用 profile-driven-triton-opt 和 analyzer/source assembler。先核对 Level1/Shape/PipeUtilization 产物与真实 dispatch。
+- 语言路由：先读 skills/ops-skills/triton/profile-driven-triton-opt/docs/operator-routing.md；Triton 现有算子使用 CANNBot verifier、latency/simulator/MFU；Ascend C 或同语言融合使用独立 generation_requests，需确认真实 reference 和前反向精度，不能走旧 Triton 单文件集成契约。
+- 弱候选、混合/未知实现先核实；不要伪造源码、benchmark、精度或性能结果；仅修改隔离副本。
+- 整网只在 finish 统一集成与回归，失败回滚。保持原有门禁和测试；无自动二次热点采集。
