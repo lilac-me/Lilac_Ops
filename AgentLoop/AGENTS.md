@@ -1,11 +1,5 @@
-# AgentLoop Profile Opt Lite
+# AgentLoop Inference Optimization
 
-只处理训练 Profiling 驱动的现有 Triton 算子优化。不要重新生成算子，不引入其他领域工作流。
+只处理推理系统（首个 vLLM-Ascend 后端）。先读 README.md、docs/inference-design.md、docs/optimization-domains.md。不要调用训练 Step、Loss、Megatron/FSDP 或训练补丁集成流程。
 
-- 整网任务：先读 README.md 和 skills/ops-skills/triton/profile-driven-triton-opt/docs/model-hotspot-pass.md，使用 plugins/ops/engine/model_hotspot.py run 或 prepare → 逐个 prompt.txt → finish。
-- 已有 Profiling：使用 skills/ops-skills/triton/profile-driven-triton-opt/SKILL.md 与同目录 AGENTS.md，配合 analyzer 和 source assembler。
-- 单算子必须使用 CANNBot verifier、latency/simulator optimizer；不自行伪造 benchmark 或优化结果。仅在工作副本修改，生成经过验证的补丁。
-- 缺真实源码则跳过；弱候选人工核定；整网只在 finish 统一集成与回归，失败回滚。没有自动二次热点采集。
-- 保留原有产物契约及测试；不绕过精度、性能及补丁验收。
-
-整网先读取 skills/ops-skills/triton/profile-driven-triton-opt/docs/operator-routing.md：按真实实现语言选择 CANNBot 插件，Triton 单算子走原有优化路径；Ascend C 或合法同语言融合生成使用独立 generation_requests，禁止将生成任务直接按旧 Triton 单文件契约集成。混合/未知语言先切分或核实。
+服务、benchmark、profiling、参数寻优使用本分支迁入的对应 Skill。固定工作负载，采集和性能测试分离；明确 Prefill/Decode/Mixed 的真实调度证据，不把 head/middle/tail 当成阶段。逐 rank 校验 Level1/Shape/PipeUtilization。按原始实现语言路由算子，融合需真实数据流、KVCache、图模式及精度检查。量化、池化、PD、并行/调度等任务路由到相应推理领域，不强制转成算子任务。任何未完成的上游接入必须如实报告，不自动改生产服务。

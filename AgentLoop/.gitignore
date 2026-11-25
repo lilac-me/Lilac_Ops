@@ -1,10 +1,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.workspace-local/
 outputs/
-.vendor_src/
-skills/ops-skills/vendored-triton-op/*
-!skills/ops-skills/vendored-triton-op/README.md
-!skills/ops-skills/vendored-triton-op/render_session.py
 .claude/
 .agents/

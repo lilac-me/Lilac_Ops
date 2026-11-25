@@ -1,6 +1,6 @@
 # AgentLoop 推理端到端性能优化设计（vLLM-Ascend，方案初版）
 
-本分支从训练精简分支派生，保留可共享的 Profiling 解析、算子语言路由与 CANNBot 接入经验。当前仅提交设计，不声称已实现推理执行器或上游插件自动集成。训练分支与 main 不修改。
+本分支是独立推理优化工程，已清理继承的训练入口、配置及训练测试，迁入服务、压测、分段采集、参数寻优 Skill，复用可移植热点识别和语言路由。独立单 rank 分析入口已提供，统一推理执行器及上游插件自动集成尚未实现。
 
 ## 1. 上游能力与复用边界
 
@@ -49,11 +49,11 @@ profiling 不使用训练的 optimizer step：以请求阶段、worker/model exe
 
 Prefill：TTFT、输入 tokens/s；Decode：TPOT/ITL、输出 tokens/s；混合服务：吞吐、p50/p95/p99 TTFT/TPOT/E2E、request goodput（按用户 SLO）、失败率、HBM/KV cache。固定精度对照集：greedy token/logit 或 logprob（按约定容差）、任务准确率（需要时）；涉及 cache/attention 或 fusion 时做变长、不同 batch、跨请求隔离和图模式回归。没有输出长度或可比较的精度证据不接受。不能以单算子收益代替端到端验收。补丁在隔离 worktree/独立环境构建，保留 enable 开关与原配置，重启加载后验证，失败回滚。
 
-## 6. 开发计划（未实现）
+## 6. 后续开发计划（统一执行器及专项能力未实现）
 
 1. 在实际 cannbot checkout 核对 model-infer-optimize SOTA workflow 和 atomic skills 契约，检查其是否支持 vLLM-Ascend 服务而不只适配独立 PyTorch infer.sh。
-2. 从 main 选择性复用 serving/benchmark/profiling 脚本，形成 vLLM adapter + 统一 workload/metric contract。
-3. 通用化 profile contract、热点分析及 operator_routing；给推理增加 phase/rank/shape 权重和组件归因，保持训练接口兼容。
+2. 已从 main 选择性迁入 serving/benchmark/profiling/autotune 脚本；下一步形成 vLLM adapter + 统一 workload/metric contract。
+3. 独立单 rank 分析入口已提供；下一步增加真实 phase/rank/shape 权重和组件归因，不依赖训练接口。
 4. 复用 CANNBot model-infer-profiling/perf-breakdown 与双算子插件；补全 Ascend C 与 fusion 的实际执行、前向/状态精度、图级集成门禁。
 5. 选已可运行的 vLLM-Ascend 模型执行 CPU 模拟测试及 NPU 实机验证。第一版不自动开展生产服务改造。
 
