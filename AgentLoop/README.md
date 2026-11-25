@@ -2,6 +2,10 @@
 
 本分支是独立的大模型训练系统优化工程，支持 Megatron 与 FSDP/FSDP2（不绑定具体 FSDP 框架）。算子优化是第一项落地能力，不是整个工程的边界。
 
+## 当前开发优先级：P0 算子闭环
+
+训练与推理分别维护独立工程，但第一阶段验收目标一致：真实 Profiling → 热点/融合机会 → 原始实现语言路由 → CANNBot Triton / Ascend C → 真实算子性能与精度验证 → 隔离集成 → 整网回归与回滚。优先跑通原生 Triton 热点、Ascend C/CANN 原生热点、同语言 Vector 融合及 MatMul 的实际形态优化。没有真实 NPU 联合测试与重复回归，不宣称稳定。其他系统优化只保留规划，不在 P0 扩展。
+
 ## 能力规划
 
 | 优化领域 | 当前状态 |
@@ -87,3 +91,26 @@ python3 skills/ops-skills/triton/profile-driven-triton-opt/scripts/test_restruct
 新增训练采集与优化分流：Level1 / PipeUtilization / Text / record_shapes；MatMul MFU 与连续 Vector 融合候选见 [采集与分流契约](skills/ops-skills/triton/profile-driven-triton-opt/docs/training-backend.md#cannbot-profiling-采集契约与优化分流)。
 
 算子优化不限定 Triton：按实际 dispatch 路由至 Triton 或 Ascend C，详见 [算子实现语言路由与融合原则](skills/ops-skills/triton/profile-driven-triton-opt/docs/operator-routing.md)。现有 Triton 自动集成路径保留，Ascend C 与融合生成任务单独交付并待图级验收。
+
+## CANNBot 双插件执行入口（P0）
+
+先使用对应的 Profiling 分析/prepare 生成任务，核实真实 dispatch、源实现、reference、输入形态以及融合数据依赖，再明确选取任务执行。安装真实的 CANNBot `triton-op-generator` / `tilelang2ascendc-ops-generator`，按当前上游版本配置 Agent CLI；执行器不猜测 CLI 参数，也不将退出码当作验收。
+
+```json
+{
+  "commands": {
+    "triton-op-generator": ["/path/to/your-triton-agent-wrapper", "{request}", "{prompt_file}"],
+    "tilelang2ascendc-ops-generator": ["/path/to/your-ascendc-agent-wrapper", "{request}", "{prompt_file}"]
+  },
+  "timeout_seconds": 7200
+}
+```
+
+上面的 wrapper 路径是待替换示例，非仓库自带命令。可使用真实 Agent CLI 的 argv；支持 {request}、{prompt}、{prompt_file}、{plugin}、{output_dir}、{model_root}。在任务目录执行，所以 Agent 需在该执行环境可发现所需插件。应使用隔离工作环境/只读原始模型源码，不授权任务直接修改原模型。
+
+```bash
+python3 plugins/ops/engine/dispatch_operator_tasks.py \
+  --run /path/to/run --config /path/to/cannbot-cli.json --task task_000
+```
+
+任务来源：`generation_requests/task_*/request.json`。可重复 --task 逐个串行执行。每次执行生成独立 dispatch_*/command.log、dispatch.json，成功退出仅标记 CLI_COMPLETED_UNVERIFIED；仍需独立校验精度、性能及集成契约。该入口不会应用补丁，不证明实际插件执行正确，也不会自动回归。
