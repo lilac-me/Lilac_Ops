@@ -103,3 +103,8 @@ python3 plugins/ops/engine/dispatch_operator_tasks.py \
 ```
 
 任务来源：`requests/task_*/request.json`。可重复 --task 逐个串行执行。每次执行生成独立 dispatch_*/command.log、dispatch.json，成功退出仅标记 CLI_COMPLETED_UNVERIFIED；仍需独立校验精度、性能及集成契约。该入口不会应用补丁，不证明实际插件执行正确，也不会自动回归。
+
+
+## 端到端收益硬门禁
+
+单算子收益不是交付目标；只有同真实 workload 下整网主指标出现超过噪声且达到预设最低门槛的正收益，精度及保护指标同时通过，才计入有效优化。无整网收益、退化或未验证均不得作为优化成功交付。正式验收使用 AISBench。详见 [端到端收益验收](docs/e2e-acceptance.md)。

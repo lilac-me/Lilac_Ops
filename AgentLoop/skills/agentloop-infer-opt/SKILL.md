@@ -17,3 +17,8 @@ description: Optimize hot operators of a vLLM-Ascend inference model using profi
 ## 正式推理验收（AISBench）
 
 优先按 docs/real-machine-test.md 使用 AISBench 流式服务压测，统一 baseline/regression 的真实请求、token、并发、采样、缓存和无 profiler 环境。保存逐请求 CSV 与整网 JSON，对比 TTFT/TPOT/ITL/E2E、整服务输出 Token 吞吐及请求失败数。现有 vLLM benchmark 用于采集负载及冒烟，不与 AISBench 混作前后对照。尚无 AISBench 自动解析及整网回归执行器，必须如实报告实际验收状态。
+
+
+## 端到端收益硬门禁
+
+单算子收益不是交付目标；只有同真实 workload 下整网主指标出现超过噪声且达到预设最低门槛的正收益，精度及保护指标同时通过，才计入有效优化。无整网收益、退化或未验证均不得作为优化成功交付。正式验收使用 AISBench。详见 AgentLoop 根目录 docs/e2e-acceptance.md。

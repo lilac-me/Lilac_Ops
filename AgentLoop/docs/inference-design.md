@@ -58,3 +58,8 @@ Prefill：TTFT、输入 tokens/s；Decode：TPOT/ITL、输出 tokens/s；混合�
 5. 选已可运行的 vLLM-Ascend 模型执行 CPU 模拟测试及 NPU 实机验证。第一版不自动开展生产服务改造。
 
 建议代码布局：plugins/ops/engine/inference_backend/{base.py,vllm_ascend.py,metrics.py}、infer_hotspot.py；公共 analyzer/router 继续复用；具体文件及调用待核对上游后再实现。
+
+
+## 端到端收益硬门禁
+
+单算子收益不是交付目标；只有同真实 workload 下整网主指标出现超过噪声且达到预设最低门槛的正收益，精度及保护指标同时通过，才计入有效优化。无整网收益、退化或未验证均不得作为优化成功交付。正式验收使用 AISBench。详见 [端到端收益验收](e2e-acceptance.md)。
