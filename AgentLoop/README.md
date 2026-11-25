@@ -72,3 +72,5 @@ python3 skills/ops-skills/triton/profile-driven-triton-opt/scripts/test_restruct
 前两项为本地逻辑/合成数据测试，不代表真实 NPU 端到端性能验收。
 
 新增训练采集与优化分流：Level1 / PipeUtilization / Text / record_shapes；MatMul MFU 与连续 Vector 融合候选见 [采集与分流契约](skills/ops-skills/triton/profile-driven-triton-opt/docs/training-backend.md#cannbot-profiling-采集契约与优化分流)。
+
+算子优化不限定 Triton：按实际 dispatch 路由至 Triton 或 Ascend C，详见 [算子实现语言路由与融合原则](skills/ops-skills/triton/profile-driven-triton-opt/docs/operator-routing.md)。现有 Triton 自动集成路径保留，Ascend C 与融合生成任务单独交付并待图级验收。

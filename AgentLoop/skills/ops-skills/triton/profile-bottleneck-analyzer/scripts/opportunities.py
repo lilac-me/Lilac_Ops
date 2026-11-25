@@ -31,6 +31,7 @@ def identify(path, steps, threshold=0.03, max_gap_us=5.0, max_shapes=5):
     steady = {str(int(s)) for s in steps}
     totals = defaultdict(float)
     matmuls = defaultdict(list)
+    native_ops = defaultdict(list)
     streams = defaultdict(list)
     missing_timing = False
     with open(path, encoding="utf-8-sig", newline="") as f:
@@ -58,6 +59,8 @@ def identify(path, steps, threshold=0.03, max_gap_us=5.0, max_shapes=5):
             is_matmul = bool(MATMUL.search(name + " " + kind))
             if is_matmul:
                 matmuls[name].append(item)
+            if re.match(r"^(aclnn|aclop|ascendc|ascend_c)", name, re.I):
+                native_ops[name].append(item)
             item["vector"] = (not is_matmul and core in VECTOR_CORES
                               and bool(VECTOR.search(name + " " + kind))
                               and known(shape) and known(dtype))
@@ -121,7 +124,10 @@ def identify(path, steps, threshold=0.03, max_gap_us=5.0, max_shapes=5):
                        "mean_op_ratio": share, "occurrences": len(chains),
                        "evidence": chains[:max_shapes], "status": "NEEDS_DATAFLOW_REVIEW",
                        "note": "Same stream/step, close timing and compatible shapes are not proof of dependency. Check real graph, aliasing, autograd and external consumers before generating a fused op."})
-    return {"matmul_mfu": sorted(mm, key=lambda x: -x["mean_op_ratio"]),
+    native = [{"name": name, "mean_op_ratio": ratio(rows), "evidence": rows[:max_shapes]}
+              for name, rows in native_ops.items() if ratio(rows) >= threshold]
+    return {"native_hotspots": sorted(native, key=lambda x: -x["mean_op_ratio"]),
+            "matmul_mfu": sorted(mm, key=lambda x: -x["mean_op_ratio"]),
             "vector_fusion": sorted(fusion, key=lambda x: -x["mean_op_ratio"]),
             "fusion_scan_complete": not missing_timing,
             "note": "Kernel-duration shares are not critical-path wall time. Builtin candidates remain advisory."}

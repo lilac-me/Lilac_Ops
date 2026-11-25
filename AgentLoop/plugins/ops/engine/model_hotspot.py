@@ -18,6 +18,7 @@ import uuid
 from model_metrics import aggregate, compare, number, validate_metrics
 from training_backend.base import normalize, phase_env
 from training_backend.profile_contract import check_profile
+from operator_routing import route_plan, generation_prompt
 
 ROOT = Path(__file__).resolve().parents[3]
 SKILL = ROOT / "skills/ops-skills/triton/profile-driven-triton-opt"
@@ -186,6 +187,10 @@ def report(run, state):
             lines.append(f"| Vector Fusion（待数据流确认） | {\' → \'.join(item[\'names\'])} | {item[\'mean_op_ratio\']:.2%} |")
         if not opportunities.get("fusion_scan_complete"):
             lines.append("时间线字段不完整，未推断 Vector 邻接关系。")
+    if state.get("operator_routes"):
+        lines += ["", "## 实现语言与 CANNBot 路由", "", "| 候选 | 优化目标 | 插件 | 状态 |", "| --- | --- | --- | --- |"]
+        for item in state["operator_routes"]:
+            lines.append("| " + " | ".join(str(item.get(k) or "-").replace("|", "\\|") for k in ("name", "objective", "plugin", "status")) + " |")
     lines += ["", "热点占比来自 kernel 耗时聚合，不作为整网实际时间占比；整网收益只使用对照实测。", ""]
     (run / "model_report.md").write_text("\n".join(lines))
 
@@ -226,12 +231,31 @@ def prepare(config_path, out):
         candidate_path = run / "analysis/candidates.json"
         state["candidates_sha256"] = digest(candidate_path)
         state["opportunities"] = read(run / "analysis/opportunities.json")
+        candidates = read(candidate_path)["candidates"]
+        state["operator_routes"] = route_plan(state["opportunities"], candidates, cfg["source_map"], state["sources"], cfg["model_root"])
+        write(run / "analysis/operator_routes.json", state["operator_routes"])
+        single_routes = {r["name"]: r for r in state["operator_routes"] if "members" not in r}
+        for n, route in enumerate(state["operator_routes"]):
+            if route["action"] not in ("generate_fused", "generate_replacement", "optimize_existing") or route["status"] == "TRITON_EXISTING_PATH":
+                continue
+            directory = run / "generation_requests" / f"task_{n:03d}"
+            directory.mkdir(parents=True)
+            write(directory / "request.json", {"run_id": run.name, "model_root": cfg["model_root"], "route": route, "source_map": cfg["source_map"], "output_dir": str(directory), "profile_dir": str(profile)})
+            (directory / "prompt.txt").write_text(generation_prompt(route))
+            route["request"] = str(directory / "request.json")
         execute(cfg["benchmark_command"], cfg, run, "baseline", run / "baseline")
         state["baseline"] = metrics(run, cfg, "baseline")
         unchanged(state)
-        for i, candidate in enumerate(read(candidate_path)["candidates"]):
+        for i, candidate in enumerate(candidates):
             task = {"name": candidate["name"], "candidate": candidate, "status": "PENDING"}
             state["tasks"].append(task)
+            routing = single_routes.get(candidate["name"], {})
+            task["routing"] = routing
+            # Legacy configs preserve their original strong + source-map behavior.
+            # New unified backend configurations require confirmed Triton evidence.
+            if "training" in cfg and routing.get("status") != "TRITON_EXISTING_PATH":
+                task.update(status="NEEDS_REVIEW", reason="非已确认 Triton；参见 operator_routes / generation_requests")
+                continue
             if candidate["tier"] != "strong":
                 task.update(status="NEEDS_REVIEW", reason="弱候选不自动调优")
                 continue
@@ -254,7 +278,8 @@ def prepare(config_path, out):
             request = {"run_id": run.name, "candidate": candidate, "source": str(source),
                        "frozen_source": state["sources"][rel]["snapshot"], "mode": mapping.get("mode", "B"),
                        "output_dir": str(directory), "summary_path": str(directory / "summary.json"),
-                       "operator_config": operator_config, "latency_index": cfg["latency_index"]}
+                       "operator_config": operator_config, "latency_index": cfg["latency_index"],
+                       "routing": routing}
             write(directory / "request.json", request)
             task["request_sha256"] = digest(directory / "request.json")
             prompt = (f"使用 {SKILL / 'SKILL.md'} 的 S3/S4-S6 算子工作流处理 {directory / 'request.json'}。\n"

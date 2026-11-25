@@ -184,3 +184,7 @@ RUN_DIR=out/profile_opt_<ts>_<rid>/   # init_run.py 每次新建；run.json 溯�
 
 - **S6**：`session.jsonl` = 后台 `project/*.jsonl` 的副本（用工作目录绝对路径精确过滤定位）；
   `session.md` 由 `skills/ops-skills/vendored-triton-op/render_session.py` 渲染。定位/渲染失败**仅告警不阻塞**。
+
+## 整网实现语言路由
+
+本 Skill 的内层只负责现有 Triton 算子调优；整网外层的 Ascend C、CANN native 及 Vector Fusion 路由见 [operator-routing.md](docs/operator-routing.md)，禁止将其强行作为 Triton 单算子任务。

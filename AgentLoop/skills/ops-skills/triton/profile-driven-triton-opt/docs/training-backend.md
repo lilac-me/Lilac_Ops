@@ -72,3 +72,7 @@ launch_command 的 argv 支持 {max_steps}、{profile_skip_first} 等由 AGENTLO
 - 其他已有自定义 Triton：保持 latency 调优路径。
 
 整网 MFU 不等于单算子 MFU。现有补丁门禁仍要求单算子真实 latency 收益和整网 loss/性能回归。
+
+## 实现语言路由
+
+以真实运行算子实现决定 Triton / Ascend C，详见 [算子路由与融合原则](operator-routing.md)。新增 analysis/operator_routes.json 与独立 generation_requests；上一节的内建候选报告现在同时给出 Ascend C 生成/优化建议和任务，不代表已完成自动集成。
