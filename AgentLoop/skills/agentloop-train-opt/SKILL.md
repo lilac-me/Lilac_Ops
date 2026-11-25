@@ -13,3 +13,8 @@ description: Optimize hot operators of a Megatron or FSDP training model using p
 
 本 Skill 是用户唯一推荐的交互入口；不要要求用户逐条运行内部 Python 命令。先解析用户给出的真实项目、模型、启动命令、工作负载、NPU 环境及优化目标，缺失的必要信息才询问。只处理 P0 算子优化，不扩展其他系统优化。安装的 CANNBot 插件必须能被当前 Agent 发现；若缺少，说明需要先按对应上游 init.sh 安装。保持原始算子实现语言，Triton 使用 triton-op-generator，Ascend C/CANN Native 使用 tilelang2ascendc-ops-generator；未知或混合语言先核实或拆分，连续 Vector 融合须确认真实数据依赖。MatMul 按真实形态分析 MFU，性能基线必须是原实际实现或完整原序列，不能使用不等价的参考实现。不得编造结果或自动修改生产源码。
 
+
+
+## 端到端收益硬门禁
+
+单算子收益不是交付目标；只有同真实 workload 下整网主指标出现超过噪声且达到预设最低门槛的正收益，精度及保护指标同时通过，才计入有效优化。无整网收益、退化或未验证均不得作为优化成功交付。详见 AgentLoop 根目录 docs/e2e-acceptance.md。

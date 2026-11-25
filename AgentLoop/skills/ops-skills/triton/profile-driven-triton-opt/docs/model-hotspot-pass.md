@@ -11,7 +11,7 @@
 4. 对固定清单内的强候选串行调用 S3/S4–S6，算子内部沿用现有调优目标与退出规则。
 5. 校验每个补丁，在临时目录先测试整批应用；冲突或不合格候选单独拒绝。
 6. 将可采纳补丁应用到模型源码，用相同 `benchmark_command` 测量一次优化后训练。
-7. 输出对比报告；训练失败、loss 超差或性能退化时还原本轮修改的源码，保留测量与诊断记录。
+7. 输出对比报告；训练失败、loss 超差或整网收益不足时还原本轮修改的源码，保留测量与诊断记录。
 
 profiling 只采集一次。为避免采集开销干扰前后对比，另有两次关闭 profiler 的计时运行
 （原始基线、优化后各一次）；它们不再次筛选热点。若没有可采纳补丁，报告 `NO_CHANGES`，
@@ -126,8 +126,8 @@ python3 /path/to/AgentLoop/plugins/ops/engine/training_benchmark.py \
 ## 结果与失败处理
 
 `model_report.md` / `model_report.json` 包含候选处理状态、基线/优化后平均与中位 step、吞吐、
-实测加速比、loss 检查和补丁是否保留。整网指标只用于报告和退化验收，不作为新的优化目标。
-`max_step_regression_pct` 是可配置的测量抖动容忍度，默认 0；不是要求性能提升的百分比。
+实测加速比、loss 检查和补丁是否保留。整网指标是最终正收益验收门禁，不驱动新的外层寻优循环。
+`min_step_improvement_pct` 默认 1.0，要求平均 Step Time 至少降低该百分比、中位 Step Time 有正改善且 loss 通过。无正收益或不足阈值时回滚。`max_step_regression_pct` 保留兼容，不能绕过正收益门禁。单次回归仅为初筛，稳定性须多次复测。
 
 状态为 `COMPLETED`、`NO_CHANGES`、`ROLLED_BACK` 或 `FAILED`。命令异常/超时会终止其进程组；
 整网验收失败会还原本轮触及的源文件并保留 `original/`、命令日志和实测结果。

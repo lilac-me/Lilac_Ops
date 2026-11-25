@@ -21,7 +21,7 @@ claude
 
 > 使用 agentloop-train-opt，基于当前项目的训练启动脚本，采集 Level1 Profiling，识别热点，按真实实现语言调用 CANNBot Triton/Ascend C 优化算子，验证精度和性能，并报告整网收益。
 
-Agent 负责按 Skill 编排内部脚本；用户无需手工拼接多个 Python 命令。实际启动参数、真实源码与 NPU 环境不能猜测。双插件仍需在相同 Agent 环境中提前按上游方式安装；init 仅提示项目本地依赖检测结果，不能验证 marketplace/global 安装或 NPU 可用性。现有 Triton 训练链路需要真实 latency Index.md（配置 latency_index）。当前生成/融合的自动集成与推理完整回归编排仍未闭合，不承诺一句话已能全自动完成所有优化。高级 Python 入口保留用于调试。
+Agent 负责按 Skill 编排内部脚本；用户无需手工拼接多个 Python 命令。实际启动参数、真实源码与 NPU 环境不能猜测。双插件仍需在相同 Agent 环境中提前按上游方式安装；init 仅提示项目本地依赖检测结果，不能验证 marketplace/global 安装或 NPU 可用性。现有 Triton 训练链路需要真实 latency Index.md（配置 latency_index）。当前 Ascend C 与融合的自动集成仍未闭合，不承诺一句话已能全自动完成所有优化。高级 Python 入口保留用于调试。
 
 初始化脚本的本地 smoke test：`bash scripts/test_init.sh`。
 
@@ -137,3 +137,8 @@ python3 plugins/ops/engine/dispatch_operator_tasks.py \
 ```
 
 任务来源：`generation_requests/task_*/request.json`。可重复 --task 逐个串行执行。每次执行生成独立 dispatch_*/command.log、dispatch.json，成功退出仅标记 CLI_COMPLETED_UNVERIFIED；仍需独立校验精度、性能及集成契约。该入口不会应用补丁，不证明实际插件执行正确，也不会自动回归。
+
+
+## 端到端收益硬门禁
+
+单算子收益不是交付目标；只有同真实 workload 下整网主指标出现超过噪声且达到预设最低门槛的正收益，精度及保护指标同时通过，才计入有效优化。无整网收益、退化或未验证均不得作为优化成功交付。详见 [端到端收益验收](docs/e2e-acceptance.md)。

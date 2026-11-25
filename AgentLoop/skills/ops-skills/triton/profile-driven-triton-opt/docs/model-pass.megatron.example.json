@@ -59,5 +59,6 @@
     "target_mfu": 60
   },
   "min_steps": 5,
-  "profile_subdir": "."
+  "profile_subdir": ".",
+  "min_step_improvement_pct": 1
 }

@@ -55,5 +55,6 @@
     "max_opt_iterations": 20,
     "target_mfu": 60
   },
-  "min_steps": 5
+  "min_steps": 5,
+  "min_step_improvement_pct": 1
 }

@@ -91,3 +91,8 @@ CLI 配置见 README 的双插件执行入口。当前 Ascend C 和融合的自�
 | 失败 | 日志、证据及源码回滚可查 |
 
 保留本轮 profile、baseline、operators、generation_requests、regression、model_report.md/json（实际生成的才记录）。建议第一天先验证一个 Triton 热点完整闭环，再拓展其他候选。已知限制：测试代码尚未执行实机验证，自动源码提取、Ascend C 多文件及融合自动集成仍待补齐；不是全自动验收完成版。
+
+
+## 端到端收益硬门禁
+
+单算子收益不是交付目标；只有同真实 workload 下整网主指标出现超过噪声且达到预设最低门槛的正收益，精度及保护指标同时通过，才计入有效优化。无整网收益、退化或未验证均不得作为优化成功交付。详见 [端到端收益验收](e2e-acceptance.md)。

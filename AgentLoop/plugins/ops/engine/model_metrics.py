@@ -51,7 +51,11 @@ def aggregate(data):
     }
 
 
-def compare(baseline, candidate, loss_atol, loss_rtol, max_step_regression_pct):
+def compare(baseline, candidate, loss_atol, loss_rtol, max_step_regression_pct,
+            min_step_improvement_pct=1.0):
+    threshold = number(min_step_improvement_pct, "min_step_improvement_pct", positive=True)
+    if threshold >= 100:
+        raise ValueError("min_step_improvement_pct 必须小于 100")
     a, b = baseline["samples"], candidate["samples"]
     if [s["step"] for s in a] != [s["step"] for s in b]:
         raise ValueError("基线与优化后的 step 窗口不一致")
@@ -62,6 +66,10 @@ def compare(baseline, candidate, loss_atol, loss_rtol, max_step_regression_pct):
                    for x, err in zip(a, errors))
     base, opt = aggregate(baseline), aggregate(candidate)
     change = (opt["mean_step_ms"] / base["mean_step_ms"] - 1) * 100
+    improvement = -change
+    median_improvement = (1 - opt["median_step_ms"] / base["median_step_ms"]) * 100
+    gain_passed = (improvement >= threshold or math.isclose(improvement, threshold, rel_tol=1e-9, abs_tol=1e-9)) and median_improvement > 0
+    nonregression = change <= max_step_regression_pct
     return {
         "baseline": base, "optimized": opt,
         "step_speedup": base["mean_step_ms"] / opt["mean_step_ms"],
@@ -69,6 +77,13 @@ def compare(baseline, candidate, loss_atol, loss_rtol, max_step_regression_pct):
         "throughput_change_pct": ((opt["tokens_per_second"] / base["tokens_per_second"] - 1) * 100
                                   if base["tokens_per_second"] else None),
         "accuracy_passed": accuracy, "max_loss_abs_error": max(errors),
-        "performance_nonregression": change <= max_step_regression_pct,
-        "accepted": accuracy and change <= max_step_regression_pct,
+        "performance_nonregression": nonregression,
+        "mean_step_improvement_pct": improvement,
+        "median_step_improvement_pct": median_improvement,
+        "min_step_improvement_pct": threshold,
+        "e2e_gain_passed": gain_passed,
+        "acceptance_reason": ("ACCURACY_FAILED" if not accuracy else
+                              "PERFORMANCE_REGRESSION" if not nonregression else
+                              "NO_E2E_GAIN" if not gain_passed else "E2E_GAIN"),
+        "accepted": accuracy and nonregression and gain_passed,
     }

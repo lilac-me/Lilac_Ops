@@ -86,6 +86,9 @@ def load_config(path):
         cfg.setdefault(key, default)
         if number(cfg[key], key) < 0:
             raise ValueError(f"{key} 不得为负数")
+    threshold = number(cfg.setdefault("min_step_improvement_pct", 1.0), "min_step_improvement_pct", positive=True)
+    if threshold >= 100:
+        raise ValueError("min_step_improvement_pct 必须小于 100")
     cfg.setdefault("source_map", {})
     cfg["latency_index"] = str((path.parent / cfg.get("latency_index", str(INDEX))).resolve())
     return cfg
@@ -167,7 +170,11 @@ def report(run, state):
                            ("吞吐（tokens/s）", "tokens_per_second")):
             lines.append(f"| {label} | {result['baseline'][key]} | {result['optimized'][key]} |")
         lines += ["", f"实测整网加速比：{result['step_speedup']:.4f}×；"
-                  f"loss 对照通过：{result['accuracy_passed']}；补丁保留：{result['accepted']}。", ""]
+                  f"loss 对照通过：{result['accuracy_passed']}；补丁保留：{result['accepted']}。",
+                  f"平均 Step Time 改善：{result.get('mean_step_improvement_pct', float('nan')):.4f}%；"
+                  f"中位 Step Time 改善：{result.get('median_step_improvement_pct', float('nan')):.4f}%；"
+                  f"最低收益门槛：{result.get('min_step_improvement_pct', 1.0):.2f}%；"
+                  f"验收原因：{result.get('acceptance_reason', 'LEGACY_RESULT')}。", ""]
     elif "baseline" in state:
         lines += [f"基线平均 step：{aggregate(state['baseline'])['mean_step_ms']:.4f} ms。",
                   "未产生优化后整网测量，不填写推算收益。", ""]
@@ -442,7 +449,8 @@ def finish(run):
                 report(run, state)
             execute(cfg["benchmark_command"], cfg, run, "regression", run / "regression")
             state["comparison"] = compare(state["baseline"], metrics(run, cfg, "regression"),
-                                          cfg["loss_atol"], cfg["loss_rtol"], cfg["max_step_regression_pct"])
+                                          cfg["loss_atol"], cfg["loss_rtol"], cfg["max_step_regression_pct"],
+                                          cfg.get("min_step_improvement_pct", 1.0))
             keep = state["comparison"]["accepted"]
             if not keep:
                 for rel in applied:

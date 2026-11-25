@@ -185,6 +185,14 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(flow.finish(run)['status'],'NO_CHANGES')
         self.assertEqual((self.model/'calls.txt').read_text().splitlines(),['profile','baseline'])
 
+    def test_operator_gain_without_model_gain_rolls_back(self):
+        self.worker.write_text(self.worker.read_text().replace("80 if optimized else 100", "100"))
+        run=self.prepare(); self.deliver(run)
+        state=flow.finish(run)
+        self.assertEqual(state['status'],'ROLLED_BACK')
+        self.assertEqual(state['comparison']['acceptance_reason'],'NO_E2E_GAIN')
+        self.assertEqual(self.source.read_bytes(),self.original)
+
     def test_same_file_patch_conflict_keeps_first_valid_candidate(self):
         self.cfg['source_map']['other_kernel']={'source':'kernel.py'}
         flow.write(self.config,self.cfg)
@@ -258,6 +266,24 @@ class MetricsTests(unittest.TestCase):
         self.assertTrue(compare(a,b,1e-5,1e-3,0)['accuracy_passed'])
         b['samples'][0]['step']=2
         with self.assertRaises(ValueError):compare(a,b,1e-5,1e-3,0)
+
+    def test_zero_or_small_e2e_gain_is_not_accepted(self):
+        a=self.payload(); b=self.payload()
+        for latency in (10, 9.95, 10.1):
+            b['samples'][0]['step_time_ms']=latency
+            r=compare(a,b,1e-5,1e-3,5)
+            self.assertFalse(r['accepted'])
+            self.assertFalse(r['e2e_gain_passed'])
+        b['samples'][0]['step_time_ms']=9.8
+        self.assertTrue(compare(a,b,1e-5,1e-3,0)['accepted'])
+        self.assertFalse(compare(a,b,1e-5,1e-3,0,3)['accepted'])
+        with self.assertRaises(ValueError):compare(a,b,1e-5,1e-3,0,0)
+
+    def test_mean_gain_without_median_gain_is_not_accepted(self):
+        a=self.payload(); b=self.payload()
+        a['samples']=[dict(step=i,step_time_ms=x,loss=0.0) for i,x in enumerate([10,10,30])]
+        b['samples']=[dict(step=i,step_time_ms=x,loss=0.0) for i,x in enumerate([10,10,15])]
+        self.assertFalse(compare(a,b,1e-5,1e-3,0)['accepted'])
 
     def test_training_log_and_duplicate_ranks(self):
         text='iteration 1/10 | elapsed time per iteration (ms): 120 | lm loss: 1.2E+00\n'
