@@ -61,3 +61,14 @@ launch_command 的 argv 支持 {max_steps}、{profile_skip_first} 等由 AGENTLO
 保留原 model-pass.example.json 与 legacy profile_command / benchmark_command 入口；新 training 配置不可同时填写旧的两个命令。run 仍需配置实际 tune_command；prepare 可先完成采集/基线，再让 Agent 按 prompt.txt 调优后 finish。源码映射、单算子 CANNBot 门禁、补丁回滚不变。
 
 当前固定窗口不保证训练已经稳态；如首次 JIT/编译或动态 shape 较慢，应扩大 skip_first、benchmark_warmup_steps 和 max_steps。不能直接用于不中断的生产训练，建议使用独立性能实验任务。需要真实 NPU 环境验收 profiler 版本、数据及日志。
+
+## CANNBot profiling 采集契约与优化分流
+
+训练采集固定使用 Level1 + Text + PipeUtilization，record_shapes=True、with_stack=True、with_modules=False、profile_memory=False，CPU + NPU。原生模式必须将 AGENTLOOP_PROFILE_PROFILER_LEVEL、AGENTLOOP_PROFILE_EXPORT_TYPE、AGENTLOOP_PROFILE_AIC_METRICS、AGENTLOOP_PROFILE_RECORD_SHAPES、AGENTLOOP_PROFILE_WITH_STACK 等环境变量映射到真实 profiler；禁止静默降为 L0。Engine 校验选定 rank 的 kernel_details.csv、step_trace_time.csv、trace_view.json 及实际 shape/dtype、时间线和 AI Core 指标字段，失败停止。采集配置与证据写入 profile_contract.json（不能凭 CSV 证明全部请求开关的实际状态）。
+
+分析器输出 analysis/opportunities.json（整网报告同时展示）：
+- MatMul/GEMM/GMM 类（名称/Type 规则）：按耗时占比筛选，保存 shape/dtype 和可用流水指标；已有真实 Triton 源且 strong 的任务自动切换 metric_mode=mfu，调用 CANNBot triton-mfu-analyzer，真实 FLOPs、实测 dtype 峰值和 latency 才能计算 MFU。内建 CANN MatMul 只报告，不自动重写。
+- Vector Fusion：只在同一 step、stream 中，按真实 start timestamp 排序，连续纯 Vector、前一输出 shape/dtype 与后一输入兼容、时间间隔在配置 fusion_max_gap_us 内（默认 5us）时生成候选；跨 stream、通信/非 Vector 算子、缺失时间线不推断融合。合并热点按累计 kernel 耗时占比过滤。相邻不是数据依赖，必须回查 trace、源码、真实张量依赖、外部消费者、stride、alias、前后向及数值精度。当前只输出待确认机会，不自动调用算子生成器、不改图；后续可接入 CANNBot fusion generation 和单独的图级补丁契约。
+- 其他已有自定义 Triton：保持 latency 调优路径。
+
+整网 MFU 不等于单算子 MFU。现有补丁门禁仍要求单算子真实 latency 收益和整网 loss/性能回归。

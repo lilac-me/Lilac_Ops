@@ -18,8 +18,10 @@ def make_profiler(directory, skip, warmup, active):
         record_shapes=True,
         with_stack=True,
         profile_memory=False,
+        with_modules=False,
         experimental_config=p._ExperimentalConfig(
             profiler_level=p.ProfilerLevel.Level1,
+            aic_metrics=p.AiCMetrics.PipeUtilization,
             export_type=p.ExportType.Text),
     )
 

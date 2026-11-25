@@ -17,6 +17,7 @@ import uuid
 
 from model_metrics import aggregate, compare, number, validate_metrics
 from training_backend.base import normalize, phase_env
+from training_backend.profile_contract import check_profile
 
 ROOT = Path(__file__).resolve().parents[3]
 SKILL = ROOT / "skills/ops-skills/triton/profile-driven-triton-opt"
@@ -176,6 +177,15 @@ def report(run, state):
         cells = [str(task.get(k, "")).replace("|", "\\|").replace("\n", " ")
                  for k in ("name", "operator_speedup", "status", "reason")]
         lines.append("| " + " | ".join(cells) + " |")
+    opportunities = state.get("opportunities", {})
+    if opportunities:
+        lines += ["", "## 优化机会（未验证，不等于实际收益）", "", "| 路径 | 算子/序列 | Kernel 耗时占比 |", "| --- | --- | ---: |"]
+        for item in opportunities.get("matmul_mfu", []):
+            lines.append(f"| MatMul MFU | {item[\'name\']} | {item[\'mean_op_ratio\']:.2%} |")
+        for item in opportunities.get("vector_fusion", []):
+            lines.append(f"| Vector Fusion（待数据流确认） | {\' → \'.join(item[\'names\'])} | {item[\'mean_op_ratio\']:.2%} |")
+        if not opportunities.get("fusion_scan_complete"):
+            lines.append("时间线字段不完整，未推断 Vector 邻接关系。")
     lines += ["", "热点占比来自 kernel 耗时聚合，不作为整网实际时间占比；整网收益只使用对照实测。", ""]
     (run / "model_report.md").write_text("\n".join(lines))
 
@@ -207,12 +217,15 @@ def prepare(config_path, out):
                 raise ValueError("hook profiling completion marker mismatch")
         if len(list(profile.rglob("kernel_details.csv"))) != 1:
             raise ValueError("请选择仅含一个 kernel_details.csv 的 profile_subdir（显式选择统计 rank）")
+        if "training" in cfg:
+            write(run / "profile_contract.json", check_profile(profile))
         analyzer_config = run / "analyzer_config.json"
         write(analyzer_config, cfg.get("analyzer", {"bottleneck_threshold": 0.03}))
         subprocess.run([sys.executable, str(ANALYZER), str(profile), "-o", str(run / "analysis"),
                         "--config", str(analyzer_config)], check=True, stdout=subprocess.DEVNULL)
         candidate_path = run / "analysis/candidates.json"
         state["candidates_sha256"] = digest(candidate_path)
+        state["opportunities"] = read(run / "analysis/opportunities.json")
         execute(cfg["benchmark_command"], cfg, run, "baseline", run / "baseline")
         state["baseline"] = metrics(run, cfg, "baseline")
         unchanged(state)
@@ -234,10 +247,14 @@ def prepare(config_path, out):
             directory = run / "operators" / f"op_{i:03d}"
             directory.mkdir(parents=True)
             task.update(directory=str(directory), source=rel)
+            operator_config = dict(cfg.get("operator_config", {}))
+            if candidate.get("route") == "matmul_mfu":
+                operator_config["metric_mode"] = "mfu"
+                operator_config.setdefault("target_mfu", 60)
             request = {"run_id": run.name, "candidate": candidate, "source": str(source),
                        "frozen_source": state["sources"][rel]["snapshot"], "mode": mapping.get("mode", "B"),
                        "output_dir": str(directory), "summary_path": str(directory / "summary.json"),
-                       "operator_config": cfg.get("operator_config", {}), "latency_index": cfg["latency_index"]}
+                       "operator_config": operator_config, "latency_index": cfg["latency_index"]}
             write(directory / "request.json", request)
             task["request_sha256"] = digest(directory / "request.json")
             prompt = (f"使用 {SKILL / 'SKILL.md'} 的 S3/S4-S6 算子工作流处理 {directory / 'request.json'}。\n"
@@ -247,6 +264,8 @@ def prepare(config_path, out):
                       "交付 summary.json、report.md、验证/benchmark 证据及针对 source 的补丁。\n"
                       "summary 增加 run_id 与 op_name，perf_baseline 指向 source；无源或失败如实报告。\n"
                       "不得复用历史结果；不得自行创建计时器顶替原有 benchmark。")
+            if candidate.get("route") == "matmul_mfu":
+                prompt += "\\nMatMul: 必须调用 triton-mfu-analyzer 冻结真实 M/N/K、dtype、FLOPs 与实测峰值，使用 MFU 模式；不得将 cube pipe ratio 当作 MFU。仍须输出真实 latency benchmark 与可复验补丁。".replace("\\\\n", "\\n")
             (directory / "prompt.txt").write_text(prompt)
         state["status"] = "READY"
         report(run, state)

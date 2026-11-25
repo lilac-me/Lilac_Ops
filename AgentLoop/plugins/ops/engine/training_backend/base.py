@@ -1,6 +1,7 @@
 """Normalize the two backend families into a single training launch contract."""
 from pathlib import Path
 import sys
+from .profile_contract import PROFILE_SETTINGS
 
 ENGINE = Path(__file__).resolve().parents[1]
 
@@ -48,6 +49,10 @@ def normalize(cfg):
     if p.get("trigger", "fixed") != "fixed" or p.get("repeat", 1) != 1:
         raise ValueError("v1 supports one fixed profiling window only")
     p["repeat"] = 1
+    for key, required in PROFILE_SETTINGS.items():
+        if key in p and p[key] != required:
+            raise ValueError(f"profiling.{key} must be {required!r} for CANNBot")
+        p[key] = required
     ranks = p.setdefault("ranks", [0])
     if not isinstance(ranks, list) or len(ranks) != 1:
         raise ValueError("v1 requires exactly one profiling rank")
@@ -94,4 +99,6 @@ def phase_env(cfg, phase):
         "AGENTLOOP_PROFILE_SKIP_FIRST": str(p["skip_first"]),
         "AGENTLOOP_PROFILE_WARMUP": str(p["warmup"]),
         "AGENTLOOP_PROFILE_ACTIVE": str(p["active"]),
+        **{"AGENTLOOP_PROFILE_" + k.upper(): str(v).lower() if isinstance(v, bool) else str(v)
+           for k, v in PROFILE_SETTINGS.items()},
     }

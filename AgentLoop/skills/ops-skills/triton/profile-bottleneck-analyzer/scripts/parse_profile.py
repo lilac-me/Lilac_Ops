@@ -24,6 +24,7 @@ import tempfile
 import zipfile
 
 from collections import defaultdict
+from opportunities import identify
 
 DEFAULT_CONFIG = {
     "bottleneck_threshold": 0.03,
@@ -70,7 +71,7 @@ def load_kernel_details(csv_path):
     per_step_op = defaultdict(lambda: defaultdict(float))  # step -> name -> duration
     per_step_total = defaultdict(float)
     name_samples = defaultdict(list)                        # name -> (shape, dtype, core)
-    with open(csv_path, newline="") as f:
+    with open(csv_path, encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             step = str(row.get("Step Id", "")).strip()
@@ -154,7 +155,7 @@ def build_candidates(per_step_op, per_step_total, steady_steps, name_samples, cf
         _seen = set()
         shapes = []
         for smp in name_samples.get(name, []):
-            key = smp["shape"]
+            key = (smp["shape"], smp["dtype"], smp["core"])
             if key in _seen:
                 continue
             _seen.add(key)
@@ -204,6 +205,11 @@ def main():
         threshold = float(cfg["bottleneck_threshold"])
         if threshold > 0:
             candidates = [c for c in candidates if c["mean_op_ratio"] >= threshold]
+        opportunities = identify(kd_path, steady_steps, threshold,
+                                 cfg.get("fusion_max_gap_us", 5.0), cfg["max_shapes"])
+        matmul_names = {item["name"] for item in opportunities["matmul_mfu"]}
+        for candidate in candidates:
+            candidate["route"] = "matmul_mfu" if candidate["name"] in matmul_names else "latency"
         weak = [c for c in candidates if c["tier"] == "weak"]
         strong = [c for c in candidates if c["tier"] == "strong"]
 
@@ -223,6 +229,8 @@ def main():
             "note": "weak 归入待人工核定，不改判，不自动进 S4。",
             "candidates": candidates,
         }
+        with open(os.path.join(args.outdir, "opportunities.json"), "w") as f:
+            json.dump(opportunities, f, indent=2, ensure_ascii=False, allow_nan=False)
         with open(os.path.join(args.outdir, "candidates.json"), "w") as f:
             json.dump(result, f, indent=2)
         print(f"OK: {len(strong)} strong / {len(weak)} weak candidates (≥ {threshold:.1%}) "
