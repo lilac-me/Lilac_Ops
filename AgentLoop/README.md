@@ -2,6 +2,27 @@
 
 本分支是独立的大模型训练系统优化工程，支持 Megatron 与 FSDP/FSDP2（不绑定具体 FSDP 框架）。算子优化是第一项落地能力，不是整个工程的边界。
 
+## 快速开始（推荐）
+
+和 CANNBot 一样采用项目级 init + Agent 对话入口。默认 Claude Code，支持 Codex、OpenCode 的项目 Skill 目录。不修改全局配置，不覆盖项目已有同名 Skill，不自动拉取 CANNBot 或安装 NPU 环境。
+
+```bash
+# 在已经具备 CANNBot 依赖的模型项目中执行
+cd /path/to/training-project
+bash /path/to/ops/AgentLoop/init.sh project claude
+# 或指定项目目录：
+# bash /path/to/ops/AgentLoop/init.sh project codex /path/to/model
+claude
+```
+
+在 Agent 中输入：
+
+> 使用 agentloop-train-opt，基于当前项目的训练启动脚本，采集 Level1 Profiling，识别热点，按真实实现语言调用 CANNBot Triton/Ascend C 优化算子，验证精度和性能，并报告整网收益。
+
+Agent 负责按 Skill 编排内部脚本；用户无需手工拼接多个 Python 命令。实际启动参数、真实源码与 NPU 环境不能猜测。双插件仍需在相同 Agent 环境中提前按上游方式安装；init 仅提示项目本地依赖检测结果，不能验证 marketplace/global 安装或 NPU 可用性。现有 Triton 训练链路需要真实 latency Index.md（配置 latency_index）。当前生成/融合的自动集成与推理完整回归编排仍未闭合，不承诺一句话已能全自动完成所有优化。高级 Python 入口保留用于调试。
+
+初始化脚本的本地 smoke test：`bash scripts/test_init.sh`。
+
 ## 当前开发优先级：P0 算子闭环
 
 训练与推理分别维护独立工程，但第一阶段验收目标一致：真实 Profiling → 热点/融合机会 → 原始实现语言路由 → CANNBot Triton / Ascend C → 真实算子性能与精度验证 → 隔离集成 → 整网回归与回滚。优先跑通原生 Triton 热点、Ascend C/CANN 原生热点、同语言 Vector 融合及 MatMul 的实际形态优化。没有真实 NPU 联合测试与重复回归，不宣称稳定。其他系统优化只保留规划，不在 P0 扩展。
