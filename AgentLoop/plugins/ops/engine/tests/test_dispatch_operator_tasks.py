@@ -17,7 +17,8 @@ class DispatchTests(unittest.TestCase):
             model.mkdir()
             commands = {}
             for i, plugin in enumerate(("triton-op-generator", "tilelang2ascendc-ops-generator")):
-                task = run / "requests" / f"task_{i:03d}"
+                single_run = run / f"run_{i}"
+                task = single_run / "requests" / f"task_{i:03d}"
                 task.mkdir(parents=True)
                 (task / "request.json").write_text(json.dumps({
                     "route": {"plugin": plugin, "action": "optimize_existing"},
@@ -26,7 +27,7 @@ class DispatchTests(unittest.TestCase):
                 commands[plugin] = [sys.executable, "-c",
                     "import os,sys; assert os.environ['AGENTLOOP_CANNBOT_PLUGIN']==sys.argv[1]; print(sys.argv[2])",
                     "{plugin}", "{prompt}"]
-                result, attempt = dispatch(run, task.name, {"commands": commands}, "requests")
+                result, attempt = dispatch(single_run, task.name, {"commands": commands}, "requests")
                 self.assertEqual(result["status"], "CLI_COMPLETED_UNVERIFIED")
                 self.assertEqual(result["acceptance"], "NOT_VERIFIED")
                 self.assertIn("reviewed", (attempt / "command.log").read_text())

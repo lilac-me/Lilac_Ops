@@ -51,6 +51,16 @@ def dispatch(run, task_name, config, task_root):
     timeout = config.get("timeout_seconds", 7200)
     if type(timeout) is not int or timeout <= 0:
         raise ValueError("timeout_seconds must be positive integer")
+    # Freeze the chosen optimization unit for this analysis run. Exclusive create
+    # also rejects concurrent attempts to select different candidates.
+    selection = run / "selected_operator.json"
+    record = {"task": task_name, "plugin": plugin, "name": route.get("name")}
+    try:
+        with selection.open("x", encoding="utf-8") as stream:
+            json.dump(record, stream, ensure_ascii=False)
+    except FileExistsError:
+        if read(selection) != record:
+            raise ValueError("one operator per run; create a fresh baseline and analysis for the next candidate")
     prompt = prompt_path.read_text(encoding="utf-8")
     replacements = {"{request}": str(request_path), "{prompt}": prompt,
                     "{prompt_file}": str(prompt_path), "{plugin}": plugin,
@@ -100,9 +110,11 @@ def main(task_root):
     parser.add_argument("--run", required=True)
     parser.add_argument("--config", required=True, help="actual installed Agent CLI argv per plugin")
     parser.add_argument("--task", required=True, action="append",
-                        help="reviewed task_NNN, repeat to run multiple tasks serially")
+                        help="single reviewed task_NNN")
     args = parser.parse_args()
     config = read(args.config)
+    if len(args.task) != 1:
+        parser.error("one operator task per run; use one --task")
     success = True
     for task in args.task:
         result, attempt = dispatch(args.run, task, config, task_root)
