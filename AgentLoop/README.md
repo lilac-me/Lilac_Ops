@@ -4,6 +4,8 @@
 
 ## 快速开始（推荐）
 
+实机测试步骤及排障：[实机测试教程](docs/real-machine-test.md)。
+
 和 CANNBot 一样采用项目级 init + Agent 对话入口。默认 Claude Code，支持 Codex、OpenCode 的项目 Skill 目录。不修改全局配置，不覆盖项目已有同名 Skill，不自动拉取 CANNBot 或安装 NPU 环境。
 
 ```bash
