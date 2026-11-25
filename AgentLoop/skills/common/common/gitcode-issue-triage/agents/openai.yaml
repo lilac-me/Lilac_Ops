@@ -1,7 +1,0 @@
-interface:
-  display_name: "GitCode Issue 分诊"
-  short_description: "跨仓扫描 Issue，并由当前宿主模型生成受控分析"
-  brand_color: "#2563EB"
-  default_prompt: "Use $gitcode-issue-triage to check read-token readiness, then analyze Issues in the GitCode repository I name without posting."
-policy:
-  allow_implicit_invocation: true

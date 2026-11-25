@@ -1,7 +1,0 @@
-envs_dirs:
-  - /mnt/share/vllm/conda_envs
-pkgs_dirs:
-  - /mnt/share/vllm/conda_pkgs
-show_channel_urls: true
-default_channels:
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main

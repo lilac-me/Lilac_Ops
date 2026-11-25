@@ -1,2 +1,0 @@
-# YAML 场景、fixture 和 parallel_recipe.yaml 的解析依赖。
-PyYAML>=6.0

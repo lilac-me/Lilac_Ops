@@ -1,4 +1,0 @@
-interface:
-  display_name: "NPU 环境设置"
-  short_description: "研究兼容性并构建隔离、可复现的昇腾 NPU 运行环境"
-  default_prompt: "使用 $ecosystem-code-repository-npu-migration:env-setup，研究受支持的昇腾软件栈，阅读本仓库的安装指南，创建隔离的 conda 环境，安装目标 checkout，并运行最小 torch NPU 设备选择 gate。"

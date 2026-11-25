@@ -1,4 +1,0 @@
-interface:
-  display_name: "NPU 迁移目标"
-  short_description: "协调仓库级昇腾 NPU 迁移、验证与支持范围收口工作"
-  default_prompt: "使用 $ecosystem-code-repository-npu-migration:goal，将本仓库迁移到昇腾 NPU，自适应委派有边界的研究或修复工作，验证代表性 workload，并分别报告任务完成情况和支持覆盖范围。"

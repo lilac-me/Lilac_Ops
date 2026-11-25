@@ -1,4 +1,0 @@
-interface:
-  display_name: "NPU 迁移本地资产"
-  short_description: "索引授权目录中的本地模型和数据集，供 NPU 迁移验证使用"
-  default_prompt: "使用 $ecosystem-code-repository-npu-migration:local-assets，构建并校验一份有界的本地模型和数据集清单，然后在不下载内容的前提下解析精确路径。"

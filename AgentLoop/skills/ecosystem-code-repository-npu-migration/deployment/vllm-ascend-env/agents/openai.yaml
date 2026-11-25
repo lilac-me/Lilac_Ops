@@ -1,4 +1,0 @@
-interface:
-  display_name: "NPU vLLM-Ascend 环境"
-  short_description: "为 NPU 迁移安装、修复并验证 vLLM-Ascend 运行环境"
-  default_prompt: "使用 $ecosystem-code-repository-npu-migration:vllm-ascend-env，在选定环境中探测、安装或修复 vLLM-Ascend，并运行真实生成烟测。使用精确的选定 Python，保护 torch 软件栈，需要时查询 local-assets，并返回真实 NPU 生成的直接证据。"

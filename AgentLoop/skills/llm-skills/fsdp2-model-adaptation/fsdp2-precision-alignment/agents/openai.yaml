@@ -1,4 +1,0 @@
-interface:
-  display_name: "FSDP2 精度对齐"
-  short_description: "用通用 harness 验证原生与 FSDP2 全词表 logits"
-  default_prompt: "为给定模型执行原生与 FSDP2 精度对齐并输出中文报告。"

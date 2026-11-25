@@ -1,38 +1,10 @@
+__pycache__/
 *.pyc
 .pytest_cache/
-.idea/
-.workspace-local/
-.claude/settings.local.json
-memory/
-
-# Plugin skill junctions（install.bat / install.sh 创建，源文件在 skills/ 各领域目录）
-plugins/*/skills/
-
-# DSH flat skill projection（install 脚本 dsh 分支创建，源文件在 skills/*）
-.dsh/
-
-# 临时安装/探测产物（pip 缓存、askpass 等）
-.tmp/
-.pylibs/
-
-# 算子/模型流水线工作产物（真机验证生成）
-# 原始工作区不入库，但打分结果 benchmark/results/**/result.json 入库——
-# 它内嵌了实测证据（每 shape/dtype 的 speedup+std、精度计数、anti-cheat 判定、
-# D4 分类核对），所以忽略工作区不丢证据。
 outputs/
-
-# doc-agent 运行产物（.doc-work/<repo>/<run>/）
-.doc-work/
-
-# Local test cases are not part of the commit scope.
-plugins/doc-agent/engine/tests/
-
-# 图谱生成产物（由 catalog/generator.py 生成，不入库）
-catalog/graph.json
-
-# Node tooling（markdownlint-cli2，见 package.json）
-node_modules/
-
-# 本地 vendor 拷贝产物（cannbot 安装器同步生成，不入库）
 .vendor_src/
-skills/ops-skills/vendored-triton-op/
+skills/ops-skills/vendored-triton-op/*
+!skills/ops-skills/vendored-triton-op/README.md
+!skills/ops-skills/vendored-triton-op/render_session.py
+.claude/
+.agents/
