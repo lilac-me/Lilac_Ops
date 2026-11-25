@@ -193,7 +193,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(state['comparison']['acceptance_reason'],'NO_E2E_GAIN')
         self.assertEqual(self.source.read_bytes(),self.original)
 
-    def test_same_file_patch_conflict_keeps_first_valid_candidate(self):
+    def test_second_candidate_deferred_even_if_artifacts_exist(self):
         self.cfg['source_map']['other_kernel']={'source':'kernel.py'}
         flow.write(self.config,self.cfg)
         run=self.prepare();out,summary=self.deliver(run)
@@ -204,8 +204,17 @@ class PipelineTests(unittest.TestCase):
         summary['op_name']='other_kernel';flow.write(second_dir/'summary.json',summary)
         state=flow.finish(run)
         self.assertEqual(state['status'],'COMPLETED')
-        self.assertEqual([t['status'] for t in state['tasks'][:2]],['APPLIED','REJECTED'])
+        self.assertEqual([t['status'] for t in state['tasks'][:2]],['APPLIED','DEFERRED'])
         self.assertIn('optimized',self.source.read_text())
+
+    def test_explicit_target_selects_only_that_candidate(self):
+        self.cfg['source_map']['other_kernel']={'source':'kernel.py'}
+        self.cfg['target_operator']='other_kernel'
+        flow.write(self.config,self.cfg)
+        run=self.prepare()
+        state=flow.read(run/'state.json')
+        self.assertEqual(state['selected_operator']['name'],'other_kernel')
+        self.assertEqual([t['status'] for t in state['tasks'][:2]],['DEFERRED','PENDING'])
 
     def test_full_cli_dispatches_tuner_and_measures_once(self):
         tuner=self.root/'tuner.py'

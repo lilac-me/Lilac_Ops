@@ -32,6 +32,10 @@ def dispatch(run, task_name, config, task_root):
     task.relative_to(base)
     request_path = task / "request.json"
     prompt_path = task / "prompt.txt"
+    state = read(run / "state.json")
+    selected = state.get("selected_operator", {})
+    if state.get("status") != "READY" or selected.get("kind") != "generation" or selected.get("task") != task_name:
+        raise ValueError("only the selected generation task of this READY run can be dispatched")
     request = read(request_path)
     route = request["route"]
     plugin = route.get("plugin")
@@ -100,9 +104,11 @@ def main(task_root):
     parser.add_argument("--run", required=True)
     parser.add_argument("--config", required=True, help="actual installed Agent CLI argv per plugin")
     parser.add_argument("--task", required=True, action="append",
-                        help="reviewed task_NNN, repeat to run multiple tasks serially")
+                        help="single reviewed task_NNN")
     args = parser.parse_args()
     config = read(args.config)
+    if len(args.task) != 1:
+        parser.error("one operator task per run; use one --task")
     success = True
     for task in args.task:
         result, attempt = dispatch(args.run, task, config, task_root)

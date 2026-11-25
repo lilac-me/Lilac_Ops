@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""一次 profiling → 固定候选 → 逐算子调优 → 一次整网回归。无需整网 MFU 目标。"""
+"""一次 profiling → 锁定一个算子 → CANNBot 内层迭代 → 单算子整网回归。"""
 from __future__ import annotations
 
 import argparse
@@ -89,6 +89,9 @@ def load_config(path):
     threshold = number(cfg.setdefault("min_step_improvement_pct", 1.0), "min_step_improvement_pct", positive=True)
     if threshold >= 100:
         raise ValueError("min_step_improvement_pct 必须小于 100")
+    target = cfg.get("target_operator")
+    if target is not None and (not isinstance(target, str) or not target.strip()):
+        raise ValueError("target_operator 必须为非空算子名称或融合路由名称")
     cfg.setdefault("source_map", {})
     cfg["latency_index"] = str((path.parent / cfg.get("latency_index", str(INDEX))).resolve())
     return cfg
@@ -162,7 +165,9 @@ def report(run, state):
     write(run / "state.json", state)
     write(run / "model_report.json", state)
     lines = ["# 整网热点算子优化结果", "", f"状态：{state['status']}",
-             "", "本轮仅采集一次热点；算子内部迭代；整网只做一次优化后回归。", ""]
+             "", "本轮仅优化一个算子（或不可拆分的融合组）；CANNBot 内部迭代；整网单独验收。", ""]
+    if state.get("selected_operator"):
+        lines += [f"本轮选定：{state['selected_operator']['name']}（{state['selected_operator']['kind']}）", ""]
     result = state.get("comparison")
     if result:
         lines += ["| 指标 | 基线 | 优化后 |", "| --- | ---: | ---: |"]
@@ -292,13 +297,29 @@ def prepare(config_path, out):
             prompt = (f"使用 {SKILL / 'SKILL.md'} 的 S3/S4-S6 算子工作流处理 {directory / 'request.json'}。\n"
                       "本次只处理该候选；候选清单与源码基线已冻结。所有结果写入 output_dir。\n"
                       "读取 source 和 frozen_source；仅修改工作目录副本，禁止修改模型仓源码。\n"
-                      "逐轮调用 cannbot latency/simulator skills，沿用算子层退出条件，不设置整网目标。\n"
+                      "由 CANNBot 自主完成该算子的多轮分析、修改、精度/性能验证，沿用内层退出条件；输出本轮最佳合格版本，不要求每轮整网回归。\n"
                       "交付 summary.json、report.md、验证/benchmark 证据及针对 source 的补丁。\n"
                       "summary 增加 run_id 与 op_name，perf_baseline 指向 source；无源或失败如实报告。\n"
                       "不得复用历史结果；不得自行创建计时器顶替原有 benchmark。")
             if candidate.get("route") == "matmul_mfu":
                 prompt += "\\nMatMul: 必须调用 triton-mfu-analyzer 冻结真实 M/N/K、dtype、FLOPs 与实测峰值，使用 MFU 模式；不得将 cube pipe ratio 当作 MFU。仍须输出真实 latency benchmark 与可复验补丁。".replace("\\\\n", "\\n")
             (directory / "prompt.txt").write_text(prompt)
+        # One optimization unit per run. Keep the other routes as discovery evidence only.
+        pending = [t for t in state["tasks"] if t["status"] == "PENDING"]
+        generated = [r for r in state["operator_routes"] if r.get("request")]
+        target = cfg.get("target_operator")
+        chosen = next((t for t in pending if t["name"] == target), None) if target else next(iter(pending), None)
+        gen = next((r for r in generated if r["name"] == target), None) if target and chosen is None else None
+        if target and chosen is None and gen is None:
+            raise ValueError(f"target_operator not eligible: {target}")
+        if chosen:
+            state["selected_operator"] = {"name": chosen["name"], "kind": "triton_existing"}
+        elif gen:
+            state["selected_operator"] = {"name": gen["name"], "kind": "generation",
+                                          "task": Path(gen["request"]).parent.name}
+        for task in pending:
+            if task is not chosen:
+                task.update(status="DEFERRED", reason="本轮仅优化一个算子；后续从最新保留模型重新采集")
         state["status"] = "READY"
         report(run, state)
     except BaseException as exc:
@@ -314,6 +335,12 @@ def tune(run):
         if state["status"] != "READY":
             raise ValueError("只能调优 READY 状态的运行")
         cfg = state["config"]
+        selected = state.get("selected_operator", {})
+        if selected.get("kind") == "generation":
+            raise ValueError("本轮为生成/融合任务，请执行选定 generation_requests；整网集成仍需独立验收")
+        pending = [t for t in state["tasks"] if t["status"] == "PENDING"]
+        if len(pending) > 1 or any(t["name"] != selected.get("name") for t in pending):
+            raise ValueError("拒绝多算子调优；请重新 prepare 单算子运行")
         argv = cfg.get("tune_command")
         if not isinstance(argv, list) or not argv or not all(isinstance(x, str) for x in argv):
             raise ValueError("自动运行需要 tune_command argv；也可手动执行各 prompt.txt 后 finish")
@@ -401,6 +428,12 @@ def finish(run):
         if state["status"] != "READY":
             raise ValueError("finish 仅允许 READY 状态；已结束的运行不得重复应用补丁")
         cfg = state["config"]
+        selected = state.get("selected_operator", {})
+        if selected.get("kind") == "generation":
+            raise ValueError("生成/融合任务尚无自动集成门禁；请隔离集成并做单算子整网对照")
+        eligible = [t for t in state["tasks"] if t["status"] in ("PENDING", "TUNED")]
+        if len(eligible) > 1 or any(t["name"] != selected.get("name") for t in eligible):
+            raise ValueError("拒绝多算子补丁集成；请重新 prepare 单算子运行")
         applied = []
         try:
             unchanged(state)
@@ -420,7 +453,7 @@ def finish(run):
                     before = (sandbox / rel).read_bytes()
                     try:
                         patch, target = validated_patch(run, state, task)
-                        # 先独立验证补丁与已复验的目标字节一致，再测试整批累积应用。
+                        # 独立验证选定算子的补丁与已复验目标字节一致。
                         with tempfile.TemporaryDirectory(prefix="agentloop_single_") as one:
                             dest = Path(one) / rel
                             dest.parent.mkdir(parents=True, exist_ok=True)

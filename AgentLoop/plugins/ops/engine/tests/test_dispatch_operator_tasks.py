@@ -18,6 +18,7 @@ class DispatchTests(unittest.TestCase):
             commands = {}
             for i, plugin in enumerate(("triton-op-generator", "tilelang2ascendc-ops-generator")):
                 task = run / "requests" / f"task_{i:03d}"
+                (run / "state.json").write_text(json.dumps({"status":"READY", "selected_operator":{"kind":"generation","task":task.name}}))
                 task.mkdir(parents=True)
                 (task / "request.json").write_text(json.dumps({
                     "route": {"plugin": plugin, "action": "optimize_existing"},

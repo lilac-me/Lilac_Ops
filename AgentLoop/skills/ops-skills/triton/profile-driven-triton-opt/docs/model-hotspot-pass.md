@@ -1,6 +1,6 @@
-# 整网单批热点优化
+# 整网单算子热点优化
 
-一次采集确定本轮热点，逐个调用已有算子工作流，统一接回模型后只做一次整网回归。
+一次采集确定热点候选，本轮仅选一个算子，由 CANNBot 自主多轮迭代，接回模型后做一次独立整网回归。
 整网没有目标 MFU、没有外层寻优循环，也不根据回归结果自动重新采集热点。
 
 ## 执行顺序
@@ -8,8 +8,8 @@
 1. `profile_command` 启动原始训练并采集一个稳态窗口，结果放入本轮 `profile/`。
 2. 解析一次 profiler，冻结候选与实际源码；多 rank 产物必须用 `profile_subdir` 选择统计 rank。
 3. `benchmark_command` 在关闭 profiler 的配置下测量基线。
-4. 对固定清单内的强候选串行调用 S3/S4–S6，算子内部沿用现有调优目标与退出规则。
-5. 校验每个补丁，在临时目录先测试整批应用；冲突或不合格候选单独拒绝。
+4. 对选定的单个强候选调用 S3/S4–S6，算子内部沿用现有调优目标与退出规则。
+5. 校验每个补丁，在临时目录试应用选定补丁；不合格则拒绝。
 6. 将可采纳补丁应用到模型源码，用相同 `benchmark_command` 测量一次优化后训练。
 7. 输出对比报告；训练失败、loss 超差或整网收益不足时还原本轮修改的源码，保留测量与诊断记录。
 
@@ -36,13 +36,12 @@ python3 plugins/ops/engine/model_hotspot.py run \
 ```bash
 python3 plugins/ops/engine/model_hotspot.py prepare \
   --config /path/to/model-pass.json --out /path/to/results
-# 使用打印的 RUN_DIR，按 operators/op_*/prompt.txt 逐个执行算子调优。
+# 使用打印的 RUN_DIR，按 state.json 的 selected_operator 执行对应 prompt.txt；跳过 DEFERRED。
 # 每个 request.json 已指定本轮候选、真实源码、shape/dtype、输出目录和指标配置。
 python3 plugins/ops/engine/model_hotspot.py finish --run /path/to/results/model_opt_ID
 ```
 
-`tune --run RUN_DIR` 可单独执行配置中的 `tune_command`。它串行处理尚未运行的任务，
-每个任务失败会写入报告并继续其余候选。`finish` 对已经结束的运行拒绝重复应用。
+`tune --run RUN_DIR` 可单独执行配置中的 `tune_command`。它仅处理本轮选定的算子，失败时记录并停止；其他候选延期。`finish` 对已经结束的运行拒绝重复应用。
 未完成或失败的运行要显式检查产物；默认新建运行目录，不静默续用旧结果。
 
 ## 命令适配
@@ -119,8 +118,7 @@ python3 /path/to/AgentLoop/plugins/ops/engine/training_benchmark.py \
 - `patch.resverified` 记录补丁目标版本的正确性验证；临时应用结果须与该版本逐字节一致。
 - `REACHED` 或 `BELOW` 均可采纳，但必须有真实单算子 latency 收益；带 waiver/advisory 的补丁不自动集成。
 
-每份补丁只允许修改当前候选对应的一个源文件。多个算子落在同文件时按顺序试应用，冲突的补丁
-标为 `REJECTED`，其余可继续；最终组合的训练精度由整网回归检查。调用前后检测源哈希，
+每份补丁只允许修改当前候选对应的一个源文件。每轮仅允许选定算子的一个补丁；最终训练精度由整网回归检查。调用前后检测源哈希，
 发现调优器直接改了模型仓或用户另有修改时停止，避免覆盖新的源码。
 
 ## 结果与失败处理
@@ -133,3 +131,8 @@ python3 /path/to/AgentLoop/plugins/ops/engine/training_benchmark.py \
 整网验收失败会还原本轮触及的源文件并保留 `original/`、命令日志和实测结果。
 强制断电或 SIGKILL 无法运行清理：`state.json` 的 `APPLYING/REGRESSION` 和 `original/` 用于人工恢复，
 不要直接重复执行 finish。模型源码之外的训练产物由各启动器管理。
+
+
+## 单算子事务（当前执行原则）
+
+每轮从当前已保留的模型版本出发，只选一个热点算子或一个不可拆分的融合算子组。AgentLoop 不干预 CANNBot 内部每一次代码迭代；由 CANNBot 自主执行分析、改写、精度与性能测量，按其退出条件交付最佳合格实现。整网只对该实现做独立对照；无需达到固定的单算子 2×/MFU 目标，只要满足单算子交付契约且实际整网收益超过预设噪声门槛、精度不劣化即可保留。失败或无收益回滚；下一候选必须以最新保留版本重新建立基线，禁止把多个算子的收益混在一起归因。第一版不自动循环所有候选。训练配置可选 target_operator（精确候选名称；融合用 operator_routes.json 的完整 name）；不指定则选择第一个可自动调优的 Triton 候选，其余标记 DEFERRED。生成/融合任务需要明确选定，当前仍需独立集成与回归，不能走现有 Triton finish 门禁。
