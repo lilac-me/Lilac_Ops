@@ -5,6 +5,13 @@ description: Optimize hot operators of a Megatron or FSDP training model using p
 
 # 训练算子优化
 
+## 强制上层优化原则
+
+所有优化任务先读取 `skills/agentloop-optimization-principles/SKILL.md`（agentloop-optimization-principles），在选择算子、调用 CANNBot 之前完成真实关键路径诊断、端到端收益预告及唯一优化单元决策，按其模板记录 `optimization-decision.md`。缺关键路径证据不得把 kernel 累计耗时当整网占比；只有整网实测正收益且精度/保护指标通过才保留。该规则优先于领域 Skill 的默认候选排序和局部性能目标；不新增独立用户操作入口。
+
+实际执行：已有 profile 可先分析；若使用 prepare 发现候选，默认选出的 Triton 只是一项待核定建议，不等于收益排序。先根据原则评审候选、写决策记录，再明确 target_operator；若与当前 run 的 selected_operator 不一致，重新 prepare 指定目标，禁止直接 tune/finish 未评审的候选。生成/融合仍需独立集成验收。
+
+
 1. 从本 SKILL.md 的实际源路径定位 AgentLoop 根（本文件位于 skills/agentloop-train-opt/）；读取 README.md、训练后端及 operator-routing 说明。
 2. 使用用户真实训练命令，优先复用原生 profiler；需要时对接 TrainingHook。默认 20 个完整训练 step，10 个预热，1 个 profiler warmup，3 个 active；Level1、Text、PipeUtilization、record_shapes、with_stack。固定 checkpoint/数据/seed/并行/精度。
 3. Agent 负责构建 model-pass 配置并执行 model_hotspot.py prepare；真实源码映射和 profiler 导出不能猜测。若已有 profile 可走算子级分析。现有 Triton 调优须配置实际安装的 triton-latency-optimizer/references/Index.md 的绝对路径（latency_index）；若需原 vendor 依赖，使用旧 install.sh 显式安装，不自动克隆。

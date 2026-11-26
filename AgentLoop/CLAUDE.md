@@ -1,5 +1,9 @@
 # AgentLoop Training Optimization
 
+## 强制上层优化原则
+
+所有优化任务先读取 `skills/agentloop-optimization-principles/SKILL.md`（agentloop-optimization-principles），在选择算子、调用 CANNBot 之前完成真实关键路径诊断、端到端收益预告及唯一优化单元决策，按其模板记录 `optimization-decision.md`。缺关键路径证据不得把 kernel 累计耗时当整网占比；只有整网实测正收益且精度/保护指标通过才保留。该规则优先于领域 Skill 的默认候选排序和局部性能目标；不新增独立用户操作入口。
+
 只处理大模型训练系统优化（Megatron/FSDP），当前落地场景是 Profiling 驱动的算子优化。通信、并行、调度、显存和集群是后续独立优化领域，不属于算子生成任务。不要接入推理服务或推理工作流。
 
 - 整网任务：先读 README.md 和 skills/ops-skills/triton/profile-driven-triton-opt/docs/model-hotspot-pass.md，使用 plugins/ops/engine/model_hotspot.py run 或 prepare → 逐个 prompt.txt → finish。

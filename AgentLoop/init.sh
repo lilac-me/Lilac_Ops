@@ -21,6 +21,7 @@ esac
 target="$(cd "$target" && pwd -P)"
 dest="$target/$rel"
 sources=(
+  "$ROOT/skills/agentloop-optimization-principles"
   "$ROOT/skills/agentloop-train-opt"
   "$ROOT/skills/ops-skills/triton/profile-bottleneck-analyzer"
   "$ROOT/skills/ops-skills/triton/triton-op-source-assembler"
@@ -43,6 +44,7 @@ for src in "${sources[@]}"; do
 done
 echo "AgentLoop train skills: $dest"
 echo "Entry skill: agentloop-train-opt"
+echo "Mandatory policy skill: agentloop-optimization-principles"
 echo "Next: cd into $target and start $tool."
 echo "CANNBot dependencies (reuse existing installation):"
 echo "  triton-op-generator"

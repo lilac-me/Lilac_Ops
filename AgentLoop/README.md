@@ -4,6 +4,8 @@
 
 ## 快速开始（推荐）
 
+**优化总原则：** [agentloop-optimization-principles](skills/agentloop-optimization-principles/SKILL.md)。init 自动注册该上层 Skill；主入口自动遵循，用户无需单独调用。先判断实际关键路径与整网收益预告，再选择一个算子交由 CANNBot 自主迭代，按整网实测收益与精度保留或回滚。[决策记录模板](skills/agentloop-optimization-principles/references/decision-record.md)。
+
 实机测试步骤及排障：[实机测试教程](docs/real-machine-test.md)。
 
 和 CANNBot 一样采用项目级 init + Agent 对话入口。默认 Claude Code，支持 Codex、OpenCode 的项目 Skill 目录。不修改全局配置，不覆盖项目已有同名 Skill，不自动拉取 CANNBot 或安装 NPU 环境。
