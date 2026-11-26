@@ -5,6 +5,13 @@ description: Optimize hot operators of a vLLM-Ascend inference model using profi
 
 # 推理算子优化
 
+## 强制上层优化原则
+
+所有优化任务先读取 `skills/agentloop-optimization-principles/SKILL.md`（agentloop-optimization-principles），在选择算子、调用 CANNBot 之前完成真实关键路径诊断、端到端收益预告及唯一优化单元决策，按其模板记录 `optimization-decision.md`。缺关键路径证据不得把 kernel 累计耗时当整网占比；只有整网实测正收益且精度/保护指标通过才保留。该规则优先于领域 Skill 的默认候选排序和局部性能目标；不新增独立用户操作入口。
+
+实际执行：先通过 infer_profile_analyze.py 获得候选及路由，再根据原则评审候选、写决策记录；只 dispatch 已选定且完成评审的一个 requests/task_*，不默认选择排名第一的 Kernel。
+
+
 1. 从本 SKILL.md 的实际源路径定位 AgentLoop 根（本文件位于 skills/agentloop-infer-opt/）；阅读 README.md 和 docs/inference-design.md。
 2. 复用 vllm-ascend-serving、vllm-ascend-benchmark、ascend-profiling-collection。固定模型、版本、并行、图模式、量化、真实 ISL/OSL、并发和请求集，先无 profiler 压测，再独立采集。目标环境、连接授权及必要参数必须明确。核对实际 worker profiler 的 Level1、Text、PipeUtilization、record_shapes、with_stack；缺失不能进入优化。
 3. 把实际 rank 产物同步到分析环境，使用 infer_profile_analyze.py；真实调度证据支持 Prefill/Decode/Mixed 标签，否则 unknown。Prefill MatMul 偏 MFU，Decode 小 M 偏 latency/带宽，按真实形态决策。

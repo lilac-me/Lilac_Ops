@@ -11,6 +11,9 @@ for tool in claude codex opencode; do
   case "$tool" in claude) rel=.claude/skills;; codex) rel=.agents/skills;; opencode) rel=.opencode/skills;; esac
   test -L "$target/$rel/agentloop-infer-opt"
   test -f "$target/$rel/agentloop-infer-opt/SKILL.md"
+  test -L "$target/$rel/agentloop-optimization-principles"
+  test -f "$target/$rel/agentloop-optimization-principles/SKILL.md"
+  test -f "$target/$rel/agentloop-optimization-principles/references/decision-record.md"
 done
 target="$TMP/conflict"
 mkdir -p "$target/.claude/skills/agentloop-infer-opt"

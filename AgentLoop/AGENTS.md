@@ -1,5 +1,9 @@
 # AgentLoop Inference Optimization
 
+## 强制上层优化原则
+
+所有优化任务先读取 `skills/agentloop-optimization-principles/SKILL.md`（agentloop-optimization-principles），在选择算子、调用 CANNBot 之前完成真实关键路径诊断、端到端收益预告及唯一优化单元决策，按其模板记录 `optimization-decision.md`。缺关键路径证据不得把 kernel 累计耗时当整网占比；只有整网实测正收益且精度/保护指标通过才保留。该规则优先于领域 Skill 的默认候选排序和局部性能目标；不新增独立用户操作入口。
+
 只处理推理系统（首个 vLLM-Ascend 后端）。先读 README.md、docs/inference-design.md、docs/optimization-domains.md。不要调用训练 Step、Loss、Megatron/FSDP 或训练补丁集成流程。
 
 服务、benchmark、profiling、参数寻优使用本分支迁入的对应 Skill。固定工作负载，采集和性能测试分离；明确 Prefill/Decode/Mixed 的真实调度证据，不把 head/middle/tail 当成阶段。逐 rank 校验 Level1/Shape/PipeUtilization。按原始实现语言路由算子，融合需真实数据流、KVCache、图模式及精度检查。量化、池化、PD、并行/调度等任务路由到相应推理领域，不强制转成算子任务。任何未完成的上游接入必须如实报告，不自动改生产服务。
